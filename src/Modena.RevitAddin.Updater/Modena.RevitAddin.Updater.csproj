@@ -1,0 +1,135 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- WPF WinExe so Velopack can manage it as the main executable -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Modena.RevitAddin.Updater</RootNamespace>
+    <AssemblyName>Modena.RevitAddin.Updater</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+
+    <!-- Output alongside the add-in DLL so Velopack packages everything together -->
+    <!-- 2 levels up: Modena.RevitAddin.Updater/ -> src/ -> repo root -->
+    <OutputPath>..\..\build-output\net8.0-windows\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="0.0.1298" />
+  </ItemGroup>
+
+  <!-- Include the .addin template in the package -->
+  <ItemGroup>
+    <None Update="Modena.RevitAddin.addin.template">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    After a Release build, copy framework-specific add-in files into subfolders
+    within the Velopack package root so the Updater can deploy the right binaries
+    for each Revit version at runtime.
+
+    Package structure (build-output/net8.0-windows/):
+      Modena.RevitAddin.Updater.exe      ← Velopack main EXE
+      Velopack.dll / NuGet.Versioning.dll
+      Modena.RevitAddin.addin.template
+      net8.0-windows/                    ← Revit 2025-2026 payload
+        Modena.RevitAddin.dll
+        Modena.Shared.dll
+        Newtonsoft.Json.dll
+        Velopack.dll
+        NuGet.Versioning.dll
+        Modena.RevitAddin.deps.json
+        Modena.Shared.deps.json
+        Registry/ModelHealthChecker.json
+        modena-config.json
+      net48/                             ← Revit 2024 payload
+        Modena.RevitAddin.dll
+        Modena.Shared.dll
+        Newtonsoft.Json.dll
+        Registry/ModelHealthChecker.json
+        modena-config.json
+  -->
+  <Target Name="CopyFrameworkFiles" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <!-- Paths are relative to src\Modena.RevitAddin.Updater\ (project dir) -->
+      <Net48SourceDir>$(MSBuildProjectDirectory)\..\..\build-output\net48\</Net48SourceDir>
+      <Net8SourceDir>$(MSBuildProjectDirectory)\..\..\build-output\net8.0-windows\</Net8SourceDir>
+      <Net48DestDir>$(OutputPath)net48\</Net48DestDir>
+      <Net8DestDir>$(OutputPath)net8.0-windows\</Net8DestDir>
+      <RegistrySourceDir>$(MSBuildProjectDirectory)\..\Modena.RevitAddin\Registry\</RegistrySourceDir>
+      <ConfigSource>$(MSBuildProjectDirectory)\..\..\modena-config.json</ConfigSource>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(Net48DestDir)" />
+    <MakeDir Directories="$(Net8DestDir)" />
+    <MakeDir Directories="$(Net48DestDir)Registry\" />
+    <MakeDir Directories="$(Net8DestDir)Registry\" />
+
+    <ItemGroup>
+      <Net48FilesToCopy Include="$(Net48SourceDir)Modena.RevitAddin.dll" />
+      <Net48FilesToCopy Include="$(Net48SourceDir)Modena.Shared.dll" />
+      <Net48FilesToCopy Include="$(Net48SourceDir)Newtonsoft.Json.dll" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Net8FilesToCopy Include="$(Net8SourceDir)Modena.RevitAddin.dll" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)Modena.RevitAddin.deps.json" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)Modena.Shared.dll" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)Modena.Shared.deps.json" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)Newtonsoft.Json.dll" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)Velopack.dll" />
+      <Net8FilesToCopy Include="$(Net8SourceDir)NuGet.Versioning.dll" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <RegistryFiles Include="$(RegistrySourceDir)**\*" />
+    </ItemGroup>
+
+    <!-- Copy addin DLLs -->
+    <Copy SourceFiles="@(Net48FilesToCopy)"
+          DestinationFolder="$(Net48DestDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(Net48SourceDir)')" />
+
+    <Copy SourceFiles="@(Net8FilesToCopy)"
+          DestinationFolder="$(Net8DestDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(Net8SourceDir)')" />
+
+    <!-- Copy Registry JSON files -->
+    <Copy SourceFiles="@(RegistryFiles)"
+          DestinationFiles="@(RegistryFiles->'$(Net48DestDir)Registry\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(RegistrySourceDir)')" />
+
+    <Copy SourceFiles="@(RegistryFiles)"
+          DestinationFiles="@(RegistryFiles->'$(Net8DestDir)Registry\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(RegistrySourceDir)')" />
+
+    <!-- Copy modena-config.json -->
+    <Copy SourceFiles="$(ConfigSource)"
+          DestinationFolder="$(Net48DestDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(ConfigSource)')" />
+
+    <Copy SourceFiles="$(ConfigSource)"
+          DestinationFolder="$(Net8DestDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(ConfigSource)')" />
+
+    <Message Importance="high" Text="Copied net48 payload to $(Net48DestDir)"
+             Condition="Exists('$(Net48SourceDir)')" />
+    <Message Importance="high" Text="Copied net8.0-windows payload to $(Net8DestDir)"
+             Condition="Exists('$(Net8SourceDir)')" />
+  </Target>
+
+</Project>

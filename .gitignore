@@ -15,6 +15,10 @@ installer/installer-output/
 # Publish binaries
 publish/
 
+# Velopack build intermediates and release packages
+build-output/
+releases/
+
 # Zip archives (source available separately)
 UI.zip
 

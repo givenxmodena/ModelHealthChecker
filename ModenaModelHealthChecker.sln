@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modena.RevitAddin.Tests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modena.RevitAddin.Legacy", "src\Modena.RevitAddin.Legacy\Modena.RevitAddin.Legacy.csproj", "{ED9D6D2A-2476-472F-901C-5320C123C8F7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modena.RevitAddin.Updater", "src\Modena.RevitAddin.Updater\Modena.RevitAddin.Updater.csproj", "{C7E12345-6789-4ABC-DEF0-123456789ABC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,6 +73,18 @@ Global
 		{ED9D6D2A-2476-472F-901C-5320C123C8F7}.Release|x64.Build.0 = Release|x64
 		{ED9D6D2A-2476-472F-901C-5320C123C8F7}.Release|x86.ActiveCfg = Release|x64
 		{ED9D6D2A-2476-472F-901C-5320C123C8F7}.Release|x86.Build.0 = Release|x64
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|x64.Build.0 = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Debug|x86.Build.0 = Debug|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|x64.ActiveCfg = Release|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|x64.Build.0 = Release|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|x86.ActiveCfg = Release|Any CPU
+		{C7E12345-6789-4ABC-DEF0-123456789ABC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,5 +94,6 @@ Global
 		{29F73740-5D2B-45BD-BED3-52E635203E19} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{D9F91413-0AFC-4B67-BAE0-2A9EDD688817} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{ED9D6D2A-2476-472F-901C-5320C123C8F7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{C7E12345-6789-4ABC-DEF0-123456789ABC} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

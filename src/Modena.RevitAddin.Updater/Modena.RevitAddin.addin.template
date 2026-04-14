@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Modena Model Health Checker</Name>
+    <Assembly>{APPDIR}\Modena.RevitAddin.dll</Assembly>
+    <AddInId>7C3F9A1D-4B8E-4F2A-B6D5-82E0C3A91E47</AddInId>
+    <FullClassName>Modena.RevitAddin.App</FullClassName>
+    <Text>Modena Model Health Checker</Text>
+    <Description>Displays model health KPIs, failed checks, families, and element categories for the active Revit model. Part of the Modena AEC &amp; INFR suite.</Description>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <Discipline>Any</Discipline>
+    <VendorId>MDNA</VendorId>
+    <VendorDescription>Modena AEC &amp; INFR - Architecture, Engineering &amp; Construction Software Solutions</VendorDescription>
+  </AddIn>
+</RevitAddIns>

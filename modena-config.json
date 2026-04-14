@@ -1,0 +1,9 @@
+{
+  "RefreshIntervalMinutes": 5,
+  "AutoRefreshEnabled": true,
+  "RequestTimeoutSeconds": 30,
+  "LoggingLevel": "Information",
+  "ApsClientId": "GKshdbezSremlBFGrg58fkePbadhIXAcW1MM0MgclDxct2Aq",
+  "ApsClientSecret": "FGZKDG6oN9qN0Oj0HOICWvad0GusD2O3tGxgdW4kAdS3BKa2mrxRYiQVhJFMIkwi",
+  "ApsBaseUrl": "https://developer.api.autodesk.com"
+}

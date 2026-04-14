@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Modena Model Health Checker - Dashboard</title>
+<!-- Load Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="base-typography">
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f1115; /* Revit-inspired dark background */
+    }
+  </style>
+<style data-purpose="custom-layout">
+    /* Custom scrollbar for high-density feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1a1d23;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f444e;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4f5664;
+    }
+
+    .dashboard-card {
+      background-color: #1a1d23;
+      border: 1px solid #2d323c;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    
+    .chart-container {
+      min-height: 240px;
+    }
+
+    /* Simulate Treemap blocks */
+    .treemap-node {
+      border: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.8);
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .treemap-node:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body class="text-gray-200 antialiased p-4">
+<!-- BEGIN: MainHeader -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-800" data-purpose="header-section">
+<div>
+<h1 class="text-xl font-bold text-white flex items-center gap-2">
+<span class="w-2 h-6 bg-blue-500 rounded-sm"></span>
+        Modena Model Health Checker
+      </h1>
+<div class="flex items-center gap-4 mt-1 text-sm text-gray-400">
+<p>Model: <span class="text-gray-200 font-medium">HOSPITAL_EXT_R24.rvt</span></p>
+<span class="text-gray-700">|</span>
+<p>Project: <span class="text-gray-200 font-medium">St. Luke's Medical Center</span></p>
+<span class="text-gray-700">|</span>
+<p>Last Analyzed: <span class="text-gray-200 font-medium">2023-10-27 14:32</span></p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded flex items-center gap-2 text-sm font-medium transition-colors" data-purpose="refresh-button">
+<svg class="h-4 w-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+        Re-Analyze Model
+      </button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<main class="space-y-6">
+<!-- BEGIN: OverviewCards -->
+<section class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4" data-purpose="overview-stats">
+<!-- Pass Rate Card -->
+<div class="dashboard-card p-4 rounded-lg flex items-center gap-4">
+<div class="w-12 h-12 rounded-full border-4 border-emerald-500/30 flex items-center justify-center">
+<span class="text-emerald-400 font-bold">82%</span>
+</div>
+<div>
+<p class="text-xs text-gray-500 uppercase font-semibold">Pass Rate</p>
+<p class="text-xl font-bold">Good</p>
+</div>
+</div>
+<!-- Total Checks Card -->
+<div class="dashboard-card p-4 rounded-lg">
+<p class="text-xs text-gray-500 uppercase font-semibold">Total Checks</p>
+<p class="text-2xl font-bold mt-1 text-white">124</p>
+</div>
+<!-- Failed Checks Card -->
+<div class="dashboard-card p-4 rounded-lg">
+<p class="text-xs text-gray-500 uppercase font-semibold text-rose-500">Failed Checks</p>
+<p class="text-2xl font-bold mt-1 text-rose-400">22</p>
+</div>
+<!-- Warnings Card -->
+<div class="dashboard-card p-4 rounded-lg">
+<p class="text-xs text-gray-500 uppercase font-semibold text-amber-500">Warnings</p>
+<p class="text-2xl font-bold mt-1 text-amber-400">458</p>
+</div>
+<!-- In-Place Families Card -->
+<div class="dashboard-card p-4 rounded-lg">
+<p class="text-xs text-gray-500 uppercase font-semibold">In-Place Families</p>
+<p class="text-2xl font-bold mt-1 text-white">12</p>
+</div>
+</section>
+<!-- END: OverviewCards -->
+<!-- BEGIN: ChartsSection -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Bar Chart: Failed by Category -->
+<div class="dashboard-card p-5 rounded-lg">
+<h3 class="text-sm font-semibold text-gray-400 mb-6 uppercase tracking-wider">Failed Checks by Category</h3>
+<div class="chart-container flex flex-col justify-end space-y-4">
+<!-- Mock Bar Chart -->
+<div class="space-y-4">
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1"><span>Families</span><span class="text-gray-400">8</span></div>
+<div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-500 h-full" style="width: 65%;"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1"><span>Annotations</span><span class="text-gray-400">5</span></div>
+<div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-500 h-full" style="width: 40%;"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1"><span>Geometry</span><span class="text-gray-400">12</span></div>
+<div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-500 h-full" style="width: 90%;"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs mb-1"><span>Parameters</span><span class="text-gray-400">4</span></div>
+<div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-500 h-full" style="width: 30%;"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Donut Chart: Distribution -->
+<div class="dashboard-card p-5 rounded-lg flex flex-col items-center text-center">
+<h3 class="text-sm font-semibold text-gray-400 mb-6 uppercase tracking-wider w-full text-left">Check Distribution</h3>
+<div class="relative w-48 h-48 flex items-center justify-center">
+<!-- Simplified SVG Donut -->
+<svg class="w-full h-full transform -rotate-90">
+<circle cx="96" cy="96" fill="transparent" r="80" stroke="#1f2937" stroke-width="20"></circle>
+<!-- Pass: 80% -->
+<circle cx="96" cy="96" fill="transparent" r="80" stroke="#10b981" stroke-dasharray="502" stroke-dashoffset="100" stroke-linecap="round" stroke-width="20"></circle>
+<!-- Fail: 15% -->
+<circle cx="96" cy="96" fill="transparent" r="80" stroke="#f43f5e" stroke-dasharray="502" stroke-dashoffset="420" stroke-linecap="round" stroke-width="20"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-3xl font-bold">124</span>
+<span class="text-[10px] uppercase text-gray-500">Total</span>
+</div>
+</div>
+<div class="grid grid-cols-3 w-full mt-6 text-[10px] uppercase font-bold tracking-tighter">
+<div class="flex flex-col"><span class="text-emerald-500">Passed</span><span>102</span></div>
+<div class="flex flex-col border-x border-gray-800"><span class="text-rose-500">Failed</span><span>22</span></div>
+<div class="flex flex-col"><span class="text-amber-500">Reports</span><span>0</span></div>
+</div>
+</div>
+<!-- Radial Chart: Severity -->
+<div class="dashboard-card p-5 rounded-lg">
+<h3 class="text-sm font-semibold text-gray-400 mb-6 uppercase tracking-wider">Severity Breakdown</h3>
+<div class="chart-container flex items-center justify-center">
+<div class="space-y-6 w-full">
+<!-- High -->
+<div class="flex items-center gap-4">
+<div class="w-full bg-gray-800 h-4 rounded-r-lg relative overflow-hidden">
+<div class="bg-rose-600 h-full" style="width: 25%"></div>
+<span class="absolute right-2 top-0 text-[10px] leading-4 font-bold">HIGH (3)</span>
+</div>
+</div>
+<!-- Medium -->
+<div class="flex items-center gap-4">
+<div class="w-full bg-gray-800 h-4 rounded-r-lg relative overflow-hidden">
+<div class="bg-amber-600 h-full" style="width: 60%"></div>
+<span class="absolute right-2 top-0 text-[10px] leading-4 font-bold">MEDIUM (12)</span>
+</div>
+</div>
+<!-- Low -->
+<div class="flex items-center gap-4">
+<div class="w-full bg-gray-800 h-4 rounded-r-lg relative overflow-hidden">
+<div class="bg-blue-600 h-full" style="width: 45%"></div>
+<span class="absolute right-2 top-0 text-[10px] leading-4 font-bold">LOW (7)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: ChartsSection -->
+<!-- BEGIN: TreemapSection -->
+<section class="dashboard-card p-5 rounded-lg" data-purpose="element-category-treemap">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Model Element Distribution</h3>
+<span class="text-xs text-gray-500">Total Elements: 24,582</span>
+</div>
+<!-- Mock Treemap Visualization -->
+<div class="grid grid-cols-12 grid-rows-6 h-64 gap-1">
+<div class="col-span-6 row-span-4 bg-blue-900/40 treemap-node border-blue-500/30">Walls (8.4k)</div>
+<div class="col-span-3 row-span-4 bg-cyan-900/40 treemap-node border-cyan-500/30">Ducts (4.2k)</div>
+<div class="col-span-3 row-span-2 bg-indigo-900/40 treemap-node border-indigo-500/30">Windows (1.8k)</div>
+<div class="col-span-3 row-span-2 bg-purple-900/40 treemap-node border-purple-500/30">Furniture (1.5k)</div>
+<div class="col-span-4 row-span-2 bg-slate-800 treemap-node">Pipes (2.1k)</div>
+<div class="col-span-4 row-span-2 bg-slate-800 treemap-node">Generic (1.9k)</div>
+<div class="col-span-2 row-span-2 bg-slate-800 treemap-node">Doors (0.8k)</div>
+<div class="col-span-2 row-span-2 bg-slate-800 treemap-node text-[10px]">Others...</div>
+</div>
+</section>
+<!-- END: TreemapSection -->
+<!-- BEGIN: FailedChecksTable -->
+<section class="dashboard-card rounded-lg overflow-hidden" data-purpose="details-table">
+<div class="p-4 border-b border-gray-800 flex items-center justify-between">
+<h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Failed Check Details</h3>
+<div class="flex items-center gap-2">
+<input class="bg-black/20 border-gray-700 text-xs rounded px-3 py-1.5 w-48 focus:ring-blue-500 focus:border-blue-500" placeholder="Filter checks..." type="text"/>
+<button class="text-gray-400 hover:text-white p-1">
+<svg class="h-4 w-4" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm" id="failed-checks-table">
+<thead class="bg-gray-800/50 text-gray-500 text-[10px] uppercase font-bold">
+<tr>
+<th class="px-6 py-3 tracking-wider">Check Name</th>
+<th class="px-6 py-3 tracking-wider">Category</th>
+<th class="px-6 py-3 tracking-wider text-center">Count</th>
+<th class="px-6 py-3 tracking-wider">Priority</th>
+<th class="px-6 py-3 tracking-wider">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-800">
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-3 font-medium text-gray-200">Duplicate Element Instances</td>
+<td class="px-6 py-3 text-gray-400 text-xs text-blue-400">Geometry</td>
+<td class="px-6 py-3 text-center">142</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">High</span>
+</td>
+<td class="px-6 py-3">
+<button class="text-blue-400 hover:text-blue-300 text-xs font-semibold">Select in Revit</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-3 font-medium text-gray-200">Unnamed Room Elements</td>
+<td class="px-6 py-3 text-gray-400 text-xs text-blue-400">Annotations</td>
+<td class="px-6 py-3 text-center">12</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">Medium</span>
+</td>
+<td class="px-6 py-3">
+<button class="text-blue-400 hover:text-blue-300 text-xs font-semibold">Select in Revit</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-3 font-medium text-gray-200">Over-constrained Geometry</td>
+<td class="px-6 py-3 text-gray-400 text-xs text-blue-400">Geometry</td>
+<td class="px-6 py-3 text-center">8</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">High</span>
+</td>
+<td class="px-6 py-3">
+<button class="text-blue-400 hover:text-blue-300 text-xs font-semibold">Select in Revit</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-3 font-medium text-gray-200">Large Imported DWG Files</td>
+<td class="px-6 py-3 text-gray-400 text-xs text-blue-400">Families</td>
+<td class="px-6 py-3 text-center">3</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">Medium</span>
+</td>
+<td class="px-6 py-3">
+<button class="text-blue-400 hover:text-blue-300 text-xs font-semibold">Select in Revit</button>
+</td>
+</tr>
+<tr class="hover:bg-gray-800/30 transition-colors">
+<td class="px-6 py-3 font-medium text-gray-200">Missing Fire Rating Parameter</td>
+<td class="px-6 py-3 text-gray-400 text-xs text-blue-400">Parameters</td>
+<td class="px-6 py-3 text-center">54</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 uppercase">Low</span>
+</td>
+<td class="px-6 py-3">
+<button class="text-blue-400 hover:text-blue-300 text-xs font-semibold">Select in Revit</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 bg-gray-800/20 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase">
+<span>Showing 5 of 22 failed checks</span>
+<div class="flex gap-2">
+<button class="px-2 py-1 rounded border border-gray-700 hover:bg-gray-700">Prev</button>
+<button class="px-2 py-1 rounded border border-gray-700 hover:bg-gray-700">Next</button>
+</div>
+</div>
+</section>
+<!-- END: FailedChecksTable -->
+</main>
+<!-- BEGIN: Footer -->
+<footer class="mt-8 pt-6 border-t border-gray-800 text-center text-xs text-gray-600">
+<p>© 2023 Modena BIM Solutions. All rights reserved. Version 2.4.1 (Stable)</p>
+</footer>
+<!-- END: Footer -->
+<!-- BEGIN: LogicScripts -->
+<script data-purpose="mock-interactivity">
+    // Minimal logic for UI feedback
+    document.querySelectorAll('.treemap-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        node.style.backgroundColor = 'rgba(59, 130, 246, 0.6)';
+      });
+      node.addEventListener('mouseleave', () => {
+        node.style.backgroundColor = '';
+      });
+    });
+
+    document.querySelector('[data-purpose="refresh-button"]').addEventListener('click', function() {
+      this.innerHTML = 'Analyzing...';
+      this.classList.add('animate-pulse');
+      setTimeout(() => {
+        this.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Re-Analyze Model`;
+        this.classList.remove('animate-pulse');
+      }, 1500);
+    });
+  </script>
+<!-- END: LogicScripts -->
+</body></html>

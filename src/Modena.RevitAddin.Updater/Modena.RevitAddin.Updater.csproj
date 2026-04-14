@@ -83,7 +83,6 @@
       <Net8FilesToCopy Include="$(Net8SourceDir)Modena.RevitAddin.dll" />
       <Net8FilesToCopy Include="$(Net8SourceDir)Modena.RevitAddin.deps.json" />
       <Net8FilesToCopy Include="$(Net8SourceDir)Modena.Shared.dll" />
-      <Net8FilesToCopy Include="$(Net8SourceDir)Modena.Shared.deps.json" />
       <Net8FilesToCopy Include="$(Net8SourceDir)Newtonsoft.Json.dll" />
       <Net8FilesToCopy Include="$(Net8SourceDir)Velopack.dll" />
       <Net8FilesToCopy Include="$(Net8SourceDir)NuGet.Versioning.dll" />

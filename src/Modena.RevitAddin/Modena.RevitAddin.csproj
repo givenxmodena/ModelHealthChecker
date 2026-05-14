@@ -57,6 +57,11 @@
     </None>
   </ItemGroup>
 
+  <!-- Deploy to Modena Suite Modules folder for all installed Revit versions (Debug only) -->
+  <Target Name="DeployToModenaSuite" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <Exec Command="powershell -ExecutionPolicy Bypass -NonInteractive -File &quot;$(ProjectDir)Deploy-ToSuite.ps1&quot; -AppId &quot;ModelHealthChecker&quot; -SourceDir &quot;$([System.IO.Path]::GetDirectoryName('$(TargetPath)'))&quot;" />
+  </Target>
+
   <!-- PostBuild: deploy .addin to Revit 2026 addins folder (Debug only) -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Debug'">
     <Exec Command="if not exist &quot;$(APPDATA)\Autodesk\Revit\Addins\2026&quot; mkdir &quot;$(APPDATA)\Autodesk\Revit\Addins\2026&quot;" IgnoreExitCode="true" />

@@ -34,7 +34,7 @@
   #pragma message "APS Client Secret fingerprint: " + _SEC_F4 + "..." + _SEC_L4
 #endif
 
-#define AppVersion "1.0.1"
+#define AppVersion "1.0.3"
 
 [Setup]
 AppId={{B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E}}

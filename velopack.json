@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/velopack/velopack/master/src/Velopack.Build/velopack.schema.json",
   "appId": "ModelHealthChecker",
   "title": "Modena Model Health Checker",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "authors": "Modena AEC",
   "description": "Revit Add-in for viewing model health KPIs, failed checks, families, and element categories. Supports Revit 2024 (.NET 4.8) and Revit 2025-2026 (.NET 8.0).",
   "mainExe": "Modena.RevitAddin.Updater.exe",

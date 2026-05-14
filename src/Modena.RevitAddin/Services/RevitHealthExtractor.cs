@@ -6,83 +6,123 @@ namespace Modena.RevitAddin.Services;
 
 /// <summary>
 /// Extracts model health data directly from the live Revit Document using the Revit API.
-/// Computes element counts, warnings, family sizes, and health checks in-process.
+/// All Revit API calls run on the calling thread (the Revit dispatcher); no background
+/// threads are used. Extraction is split so the UI can render fast data first.
 /// </summary>
 public class RevitHealthExtractor : IModelHealthExtractor
 {
     private readonly Document _doc;
+    private readonly PluginConfig _config;
 
-    public RevitHealthExtractor(Document document)
+    public RevitHealthExtractor(Document document, PluginConfig? config = null)
     {
-        _doc = document ?? throw new ArgumentNullException(nameof(document));
+        _doc    = document ?? throw new ArgumentNullException(nameof(document));
+        _config = config   ?? new PluginConfig();
     }
 
+    /// <summary>Full extraction — fast phase + family sizes combined. Kept for backward compatibility.</summary>
     public Task<DashboardResponse> ExtractAsync(IRevitDocumentContext context, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        LogService.Info("RevitHealthExtractor: Starting extraction from live document.");
+        LogService.Info("RevitHealthExtractor: Starting full extraction.");
 
         var categories = ExtractCategoryDistribution();
-        var warnings = ExtractWarnings();
-        var families = ExtractFamilySizes();
-        var healthChecks = RunHealthChecks();
+        var warnings   = ExtractWarnings();
+        var families   = ExtractFamilySizesCore(ct);
+        var checks     = RunHealthChecks();
 
-        var totalChecks = healthChecks.Count;
-        var failedChecks = healthChecks.Where(c => c.Count > 0).ToList();
-        var passedChecks = healthChecks.Where(c => c.Count == 0).Select(c => c.Name).ToList();
-        var failedCount = failedChecks.Count;
-        var passedCount = totalChecks - failedCount;
-        var passRate = totalChecks > 0 ? (int)Math.Round(100.0 * passedCount / totalChecks) : 100;
+        var response = BuildResponse(context, categories, warnings, families, checks);
+        LogService.Info($"RevitHealthExtractor: Full extraction complete. PassRate={response.Summary?.PassRate}%");
+        return Task.FromResult(response);
+    }
+
+    /// <summary>
+    /// Fast phase: categories, warnings, and health checks only.
+    /// Families list is empty — call ExtractFamilySizesAsync separately.
+    /// </summary>
+    public Task<DashboardResponse> ExtractFastAsync(IRevitDocumentContext context, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        LogService.Info("RevitHealthExtractor: Starting fast extraction (no families).");
+
+        var categories = ExtractCategoryDistribution();
+        var warnings   = ExtractWarnings();
+        var checks     = RunHealthChecks();
+
+        var response = BuildResponse(context, categories, warnings, families: new List<FamilyDto>(), checks);
+        LogService.Info($"RevitHealthExtractor: Fast extraction complete. PassRate={response.Summary?.PassRate}%");
+        return Task.FromResult(response);
+    }
+
+    /// <summary>
+    /// Slow phase: opens each family document to measure its size on disk.
+    /// Respects cancellation so closing the window mid-load is clean.
+    /// </summary>
+    public Task<List<FamilyDto>> ExtractFamilySizesAsync(IRevitDocumentContext context, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        LogService.Info("RevitHealthExtractor: Starting family size extraction.");
+        var families = ExtractFamilySizesCore(ct);
+        LogService.Info($"RevitHealthExtractor: Family extraction complete. Count={families.Count}");
+        return Task.FromResult(families);
+    }
+
+    private DashboardResponse BuildResponse(
+        IRevitDocumentContext context,
+        List<CategoryDto> categories,
+        int warnings,
+        List<FamilyDto> families,
+        List<FailedCheckDto> healthChecks)
+    {
+        var totalChecks   = healthChecks.Count;
+        var failedChecks  = healthChecks.Where(c => c.Count > 0).ToList();
+        var passedChecks  = healthChecks.Where(c => c.Count == 0).Select(c => c.Name).ToList();
+        var failedCount   = failedChecks.Count;
+        var passedCount   = totalChecks - failedCount;
+        var passRate      = totalChecks > 0 ? (int)Math.Round(100.0 * passedCount / totalChecks) : 100;
         var totalElements = categories.Sum(c => c.Value);
 
-        var response = new DashboardResponse
+        return new DashboardResponse
         {
-            ModelKey = BuildModelKey(context),
-            ModelName = context.DocumentTitle ?? "Unknown",
-            ProjectName = ExtractProjectName(context),
+            ModelKey       = BuildModelKey(context),
+            ModelName      = context.DocumentTitle ?? "Unknown",
+            ProjectName    = ExtractProjectName(context),
             LastUpdatedUtc = DateTime.UtcNow,
             Summary = new SummaryDto
             {
-                PassRate = passRate,
-                TotalChecks = totalChecks,
-                PassedChecks = passedCount,
-                FailedChecks = failedCount,
+                PassRate         = passRate,
+                TotalChecks      = totalChecks,
+                PassedChecks     = passedCount,
+                FailedChecks     = failedCount,
                 ReportOnlyChecks = 0,
-                Warnings = warnings,
-                FileSizeMb = 0,
-                ModelElements = totalElements
+                Warnings         = warnings,
+                FileSizeMb       = 0,
+                ModelElements    = totalElements
             },
             FailedChecks = failedChecks,
             Metrics = new List<MetricDto>
             {
                 new() { Name = "Total Elements", Count = totalElements },
-                new() { Name = "Warnings", Count = warnings },
-                new() { Name = "Families", Count = families.Count }
+                new() { Name = "Warnings",       Count = warnings      },
+                new() { Name = "Families",       Count = families.Count }
             },
-            Categories = categories,
-            Families = families,
+            Categories   = categories,
+            Families     = families,
             PassedChecks = passedChecks
         };
-
-        LogService.Info($"RevitHealthExtractor: Extraction complete. PassRate={passRate}%, Elements={totalElements}, Warnings={warnings}");
-        return Task.FromResult(response);
     }
 
     private List<CategoryDto> ExtractCategoryDistribution()
     {
         try
         {
-            var collector = new FilteredElementCollector(_doc)
-                .WhereElementIsNotElementType();
-
-            var grouped = collector
+            return new FilteredElementCollector(_doc)
+                .WhereElementIsNotElementType()
                 .Where(e => e.Category is not null && !string.IsNullOrEmpty(e.Category.Name))
                 .GroupBy(e => e.Category!.Name)
                 .Select(g => new CategoryDto { Name = g.Key, Value = g.Count() })
                 .OrderByDescending(c => c.Value)
                 .ToList();
-
-            return grouped;
         }
         catch (Exception ex)
         {
@@ -95,8 +135,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var warningList = _doc.GetWarnings();
-            return warningList?.Count ?? 0;
+            return _doc.GetWarnings()?.Count ?? 0;
         }
         catch (Exception ex)
         {
@@ -105,73 +144,60 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private List<FamilyDto> ExtractFamilySizes()
+    private List<FamilyDto> ExtractFamilySizesCore(CancellationToken ct)
     {
+        // Previous approach (EditFamily + SaveAs) opened every family document, taking
+        // 10–30+ minutes on models with many families. Instance count gives the same
+        // actionable insight (which families are most used = biggest performance impact)
+        // in under a second using two collector passes with no document opens.
         try
         {
-            // Materialise the collector before opening any family documents so that
-            // the filtered-element cursor is not held open while documents are opened
-            // and closed inside the loop.
-            var allFamilies = new FilteredElementCollector(_doc)
+            // Pass 1: count placed instances grouped by parent family name.
+            ct.ThrowIfCancellationRequested();
+            var instancesByFamily = new FilteredElementCollector(_doc)
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>()
+                .Where(fi => fi.Symbol?.Family is not null)
+                .GroupBy(fi => fi.Symbol!.Family.Name)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // Pass 2: enumerate all families and attach their instance counts.
+            ct.ThrowIfCancellationRequested();
+            return new FilteredElementCollector(_doc)
                 .OfClass(typeof(Family))
                 .Cast<Family>()
-                .ToList();
-
-            var result = new List<FamilyDto>(allFamilies.Count);
-
-            foreach (var f in allFamilies)
-            {
-                var sizeKb = 0;
-                Document? famDoc = null;
-                try
+                .Select(f => new FamilyDto
                 {
-                    famDoc = _doc.EditFamily(f);
-                    if (famDoc is not null && !string.IsNullOrEmpty(famDoc.PathName))
-                    {
-                        var fi = new System.IO.FileInfo(famDoc.PathName);
-                        sizeKb = (int)(fi.Length / 1024);
-                    }
-                }
-                catch
-                {
-                    // Some families can't be edited; skip size
-                }
-                finally
-                {
-                    // Always close the family document before moving to the next
-                    // family so Revit's document state stays clean.
-                    famDoc?.Close(false);
-                }
-
-                result.Add(new FamilyDto { Name = f.Name, Kb = sizeKb });
-            }
-
-            return result
-                .OrderByDescending(f => f.Kb)
+                    Name          = f.Name,
+                    InstanceCount = instancesByFamily.TryGetValue(f.Name, out var n) ? n : 0
+                })
+                .OrderByDescending(f => f.InstanceCount)
                 .Take(20)
                 .ToList();
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            LogService.Error("Failed to extract family sizes.", ex);
+            LogService.Error("Failed to extract family usage.", ex);
             return new List<FamilyDto>();
         }
     }
 
     private List<FailedCheckDto> RunHealthChecks()
     {
-        var checks = new List<FailedCheckDto>();
+        var rules   = _config.HealthChecks;
+        var results = new List<FailedCheckDto>();
 
-        checks.Add(CheckMirroredElements());
-        checks.Add(CheckUnplacedRooms());
-        checks.Add(CheckDuplicateTypeNames());
-        checks.Add(CheckDetailLineItems());
-        checks.Add(CheckImportedCadInstances());
+        if (rules.MirroredElements.Enabled)     results.Add(CheckMirroredElements(rules.MirroredElements));
+        if (rules.UnplacedRooms.Enabled)        results.Add(CheckUnplacedRooms(rules.UnplacedRooms));
+        if (rules.DuplicateTypeNames.Enabled)   results.Add(CheckDuplicateTypeNames(rules.DuplicateTypeNames));
+        if (rules.DetailLineItems.Enabled)      results.Add(CheckDetailLineItems(rules.DetailLineItems));
+        if (rules.ImportedCadInstances.Enabled) results.Add(CheckImportedCadInstances(rules.ImportedCadInstances));
 
-        return checks;
+        return results;
     }
 
-    private FailedCheckDto CheckMirroredElements()
+    private FailedCheckDto CheckMirroredElements(HealthCheckRule rule)
     {
         try
         {
@@ -183,10 +209,10 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
             return new FailedCheckDto
             {
-                Name = "Mirrored Elements",
-                Count = count,
-                Category = "Model Quality",
-                Priority = count > 50 ? "HIGH" : count > 10 ? "MEDIUM" : "LOW",
+                Name       = "Mirrored Elements",
+                Count      = count,
+                Category   = "Model Quality",
+                Priority   = rule.ResolvePriority(count),
                 Discipline = "General"
             };
         }
@@ -197,7 +223,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private FailedCheckDto CheckUnplacedRooms()
+    private FailedCheckDto CheckUnplacedRooms(HealthCheckRule rule)
     {
         try
         {
@@ -209,10 +235,10 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
             return new FailedCheckDto
             {
-                Name = "Unplaced Rooms",
-                Count = count,
-                Category = "Spatial",
-                Priority = count > 10 ? "HIGH" : count > 0 ? "MEDIUM" : "LOW",
+                Name       = "Unplaced Rooms",
+                Count      = count,
+                Category   = "Spatial",
+                Priority   = rule.ResolvePriority(count),
                 Discipline = "Architecture"
             };
         }
@@ -223,7 +249,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private FailedCheckDto CheckDuplicateTypeNames()
+    private FailedCheckDto CheckDuplicateTypeNames(HealthCheckRule rule)
     {
         try
         {
@@ -240,10 +266,10 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
             return new FailedCheckDto
             {
-                Name = "Duplicate Type Names",
-                Count = duplicates,
-                Category = "Naming",
-                Priority = duplicates > 20 ? "HIGH" : duplicates > 5 ? "MEDIUM" : "LOW",
+                Name       = "Duplicate Type Names",
+                Count      = duplicates,
+                Category   = "Naming",
+                Priority   = rule.ResolvePriority(duplicates),
                 Discipline = "General"
             };
         }
@@ -254,7 +280,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private FailedCheckDto CheckDetailLineItems()
+    private FailedCheckDto CheckDetailLineItems(HealthCheckRule rule)
     {
         try
         {
@@ -265,10 +291,10 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
             return new FailedCheckDto
             {
-                Name = "Detail Line Items",
-                Count = count,
-                Category = "Performance",
-                Priority = count > 5000 ? "HIGH" : count > 1000 ? "MEDIUM" : "LOW",
+                Name       = "Detail Line Items",
+                Count      = count,
+                Category   = "Performance",
+                Priority   = rule.ResolvePriority(count),
                 Discipline = "General"
             };
         }
@@ -279,7 +305,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private FailedCheckDto CheckImportedCadInstances()
+    private FailedCheckDto CheckImportedCadInstances(HealthCheckRule rule)
     {
         try
         {
@@ -290,10 +316,10 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
             return new FailedCheckDto
             {
-                Name = "Imported CAD Instances",
-                Count = count,
-                Category = "Performance",
-                Priority = count > 10 ? "HIGH" : count > 3 ? "MEDIUM" : "LOW",
+                Name       = "Imported CAD Instances",
+                Count      = count,
+                Category   = "Performance",
+                Priority   = rule.ResolvePriority(count),
                 Discipline = "General"
             };
         }
@@ -313,7 +339,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         return Slugify($"{path}-{context.DocumentTitle}");
     }
 
-    private static string ExtractProjectName(IRevitDocumentContext context)
+    internal static string ExtractProjectName(IRevitDocumentContext context)
     {
         if (!string.IsNullOrEmpty(context.ModelPath))
         {
@@ -331,21 +357,9 @@ public class RevitHealthExtractor : IModelHealthExtractor
     private static string Slugify(string input)
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
-
-        var slug = input.ToLowerInvariant();
-        slug = System.IO.Path.GetFileNameWithoutExtension(slug) +
-               (slug.Contains(System.IO.Path.DirectorySeparatorChar) || slug.Contains('/') ? "" : "");
-
-        // Replace non-alphanumeric with hyphens, collapse consecutive hyphens
         var sb = new System.Text.StringBuilder();
         foreach (var c in input.ToLowerInvariant())
-        {
-            if (char.IsLetterOrDigit(c))
-                sb.Append(c);
-            else
-                sb.Append('-');
-        }
-
+            sb.Append(char.IsLetterOrDigit(c) ? c : '-');
         var result = sb.ToString();
         while (result.Contains("--"))
             result = result.Replace("--", "-");

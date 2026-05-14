@@ -1,5 +1,6 @@
 using Autodesk.Revit.UI;
 using Modena.RevitAddin.Services;
+using System.IO;
 using System.Reflection;
 
 namespace Modena.RevitAddin;
@@ -14,6 +15,22 @@ public class App : IExternalApplication
     {
         try
         {
+            // Configure file logging before anything else.
+            var config   = PluginConfig.Load();
+            var fileName = $"ModelHealthChecker-{DateTime.Now:yyyy-MM-dd}.log";
+
+            // Primary: %APPDATA%\Modena\logs\ — persists across Revit sessions.
+            var appDataPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Modena", "logs", fileName);
+
+            // Secondary: logs\ folder next to the add-in DLL — easy to find during development.
+            var assemblyDir  = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? ".";
+            var localLogPath = Path.Combine(assemblyDir, "logs", fileName);
+
+            LogService.Configure(config.LoggingLevel, appDataPath, localLogPath);
+            LogService.Info("LogService configured. Add-in starting.");
+
             // Create or reuse the "Modena" ribbon tab
             const string tabName = "Modena";
             try

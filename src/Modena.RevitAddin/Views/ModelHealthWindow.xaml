@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Modena.RevitAddin.ViewModels"
         xmlns:local="clr-namespace:Modena.RevitAddin.Views"
-        Title="Modena Model Health Checker | v1.0.1"
+        Title="Modena Model Health Checker | v1.0.3"
         Width="1100" Height="750"
         MinWidth="800" MinHeight="500"
         Background="#0f1115"
@@ -126,6 +126,12 @@
                 <!-- ===== HEADER ===== -->
                 <DockPanel Margin="0,0,0,16">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                        <!-- Subtle indicator shown only during silent background auto-refresh -->
+                        <Border CornerRadius="3" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center"
+                                Background="#1a1d23" BorderBrush="#2d323c" BorderThickness="1"
+                                Visibility="{Binding IsBackgroundRefreshing, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="⟳  Syncing" FontSize="10" Foreground="{StaticResource AccentBlue}"/>
+                        </Border>
                         <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextMuted}"
                                    FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <Button Content="⟳  Re-Analyze Model" Style="{StaticResource RefreshButton}"
@@ -160,8 +166,8 @@
 
                 <Border Height="1" Background="#1f2937" Margin="0,0,0,16"/>
 
-                <!-- ===== LOADING STATE ===== -->
-                <Border Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+                <!-- ===== LOADING STATE (only shown before first data; hides once fast phase completes) ===== -->
+                <Border Visibility="{Binding IsInitialLoading, Converter={StaticResource BoolToVis}}"
                         HorizontalAlignment="Center" Margin="0,40,0,40">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="⟳" FontSize="32" Foreground="{StaticResource AccentBlue}"
@@ -364,19 +370,32 @@
                     <!-- Top Families by Size -->
                     <Border Style="{StaticResource DashboardCard}" Margin="0,0,0,16">
                         <StackPanel>
-                            <TextBlock Text="TOP FAMILIES BY SIZE" Style="{StaticResource SectionHeader}"/>
-                            <ItemsControl ItemsSource="{Binding Families}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,0,0,8">
-                                            <TextBlock Text="{Binding Kb, StringFormat='{}{0} KB'}" DockPanel.Dock="Right"
-                                                       Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
-                                                       FontSize="12" VerticalAlignment="Center"/>
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <DockPanel Margin="0,0,0,12">
+                                <!-- Inline loading indicator shown while family sizes are being extracted -->
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                            Visibility="{Binding IsFamiliesLoading, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="⟳" FontSize="11" Foreground="{StaticResource AccentBlue}"
+                                               Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Loading..." Foreground="{StaticResource TextMuted}"
+                                               FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Text="TOP FAMILIES BY USAGE" Style="{StaticResource SectionHeader}" Margin="0"/>
+                            </DockPanel>
+                            <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Families}" Margin="0,0,10,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding InstanceCount, StringFormat='{}{0} placed'}" DockPanel.Dock="Right"
+                                                           Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
+                                                           FontSize="12" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </StackPanel>
                     </Border>
 

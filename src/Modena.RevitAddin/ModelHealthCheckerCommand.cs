@@ -44,8 +44,8 @@ public class ModelHealthCheckerCommand : IExternalCommand
                 return Result.Failed;
             }
 
-            var config = PluginConfig.Load();
-            var extractor = new RevitHealthExtractor(doc);
+            var config    = PluginConfig.Load();
+            var extractor = new RevitHealthExtractor(doc, config);
 
             var viewModel = new ModelHealthViewModel(identity, extractor, documentContext, config);
             var window = new ModelHealthWindow(viewModel);

@@ -12,13 +12,16 @@ namespace Modena.RevitAddin.Services;
 public static class LogService
 {
     private static readonly object Lock = new();
-    private static string? _logFilePath;
+    private static string[] _logFilePaths = Array.Empty<string>();
     private static LogLevel _minLevel = LogLevel.Information;
 
-    public static void Configure(string logFilePath, string loggingLevel)
+    /// <summary>
+    /// Configures log output. Pass one or more file paths to write to all of them simultaneously.
+    /// </summary>
+    public static void Configure(string loggingLevel, params string[] logFilePaths)
     {
-        _logFilePath = logFilePath;
-        _minLevel = ParseLevel(loggingLevel);
+        _logFilePaths = logFilePaths ?? Array.Empty<string>();
+        _minLevel     = ParseLevel(loggingLevel);
     }
 
     public static void Debug(string message) => Write(LogLevel.Debug, message);
@@ -40,17 +43,19 @@ public static class LogService
 
         System.Diagnostics.Debug.WriteLine(line);
 
-        if (_logFilePath is null) return;
+        if (_logFilePaths.Length == 0) return;
 
         try
         {
             lock (Lock)
             {
-                var dir = Path.GetDirectoryName(_logFilePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-
-                File.AppendAllText(_logFilePath, line + Environment.NewLine);
+                foreach (var path in _logFilePaths)
+                {
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                        Directory.CreateDirectory(dir);
+                    File.AppendAllText(path, line + Environment.NewLine);
+                }
             }
         }
         catch

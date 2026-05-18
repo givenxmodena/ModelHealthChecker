@@ -69,6 +69,19 @@
     </Page>
   </ItemGroup>
 
+  <!-- Ribbon button icons — linked from the Modern project, copied next to the DLL -->
+  <ItemGroup>
+    <Content Include="..\Modena.RevitAddin\Resources\health-check_16.png" Link="Resources\health-check_16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Modena.RevitAddin\Resources\health-check_32.png" Link="Resources\health-check_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\Modena.RevitAddin\Resources\health-check_48.png" Link="Resources\health-check_48.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Copy .addin manifest and config to output directory -->
   <ItemGroup>
     <None Include="..\Modena.RevitAddin\Modena.RevitAddin.addin">

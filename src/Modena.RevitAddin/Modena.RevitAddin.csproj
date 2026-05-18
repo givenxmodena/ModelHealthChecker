@@ -40,6 +40,19 @@
     <ProjectReference Include="..\Modena.Shared\Modena.Shared.csproj" />
   </ItemGroup>
 
+  <!-- Ribbon button icons — copied next to the DLL so both net8 and net48 can load them from disk -->
+  <ItemGroup>
+    <Content Include="Resources\health-check_16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\health-check_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\health-check_48.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- Registry descriptors for Modena Suite -->
   <ItemGroup>
     <Content Include="Registry\**\*.json">

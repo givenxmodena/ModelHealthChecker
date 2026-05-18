@@ -166,6 +166,18 @@
 
                 <Border Height="1" Background="#1f2937" Margin="0,0,0,16"/>
 
+                <!-- ===== CONFIG WARNING BANNER ===== -->
+                <Border Visibility="{Binding HasConfigWarning, Converter={StaticResource BoolToVis}}"
+                        Background="#1c1500" BorderBrush="#78350f" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚠" Foreground="{StaticResource AccentAmber}" FontSize="12"
+                                   FontWeight="Bold" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ConfigWarningText}" Foreground="{StaticResource AccentAmber}"
+                                   FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- ===== LOADING STATE (only shown before first data; hides once fast phase completes) ===== -->
                 <Border Visibility="{Binding IsInitialLoading, Converter={StaticResource BoolToVis}}"
                         HorizontalAlignment="Center" Margin="0,40,0,40">

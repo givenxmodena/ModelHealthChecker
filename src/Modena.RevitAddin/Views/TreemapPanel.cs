@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Modena.Shared.DTOs;
 
@@ -22,6 +23,14 @@ public class TreemapPanel : FrameworkElement
         set => SetValue(ItemsSourceProperty, value);
     }
 
+    private List<Rect> _layoutRects = new();
+    private List<CategoryDto> _layoutItems = new();
+
+    // Persistent tooltip — created once so WPF's tooltip service sees it on mouse-enter.
+    // OnMouseMove just updates the TextBlock content.
+    private readonly TextBlock _ttName;
+    private readonly TextBlock _ttCount;
+
     private static readonly Color[] Palette = new[]
     {
         Color.FromArgb(0x99, 0x1e, 0x3a, 0x8a), // blue-900
@@ -36,6 +45,37 @@ public class TreemapPanel : FrameworkElement
 
     private static readonly Color BorderColor = Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF);
 
+    public TreemapPanel()
+    {
+        _ttName = new TextBlock
+        {
+            FontSize   = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xe5, 0xe7, 0xeb))
+        };
+        _ttCount = new TextBlock
+        {
+            FontSize   = 11,
+            Margin     = new Thickness(0, 3, 0, 0),
+            Foreground = new SolidColorBrush(Color.FromRgb(0x9c, 0xa3, 0xaf))
+        };
+
+        var panel = new StackPanel();
+        panel.Children.Add(_ttName);
+        panel.Children.Add(_ttCount);
+
+        ToolTip = new ToolTip
+        {
+            Content         = panel,
+            Background      = new SolidColorBrush(Color.FromRgb(0x1a, 0x1d, 0x23)),
+            BorderBrush     = new SolidColorBrush(Color.FromRgb(0x2d, 0x32, 0x3c)),
+            BorderThickness = new Thickness(1),
+            Padding         = new Thickness(10, 8, 10, 8),
+            HasDropShadow   = true
+        };
+        ToolTipService.SetShowDuration(this, 8000);
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
@@ -47,6 +87,8 @@ public class TreemapPanel : FrameworkElement
         if (totalValue <= 0) return;
 
         var rects = LayoutStrip(items, totalValue, new Rect(0, 0, ActualWidth, ActualHeight));
+        _layoutRects = rects;
+        _layoutItems = items;
 
         var typeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Medium, FontStretches.Normal);
         var borderPen = new Pen(new SolidColorBrush(BorderColor), 1);
@@ -54,8 +96,7 @@ public class TreemapPanel : FrameworkElement
         for (int i = 0; i < rects.Count; i++)
         {
             var rect = rects[i];
-            var color = Palette[i % Palette.Length];
-            var brush = new SolidColorBrush(color);
+            var brush = new SolidColorBrush(Palette[i % Palette.Length]);
 
             dc.DrawRoundedRectangle(brush, borderPen, rect, 4, 4);
 
@@ -68,12 +109,25 @@ public class TreemapPanel : FrameworkElement
                     new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
                     VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
-                text.MaxTextWidth = rect.Width - 8;
+                text.MaxTextWidth  = rect.Width - 8;
                 text.MaxTextHeight = rect.Height - 4;
-                text.Trimming = TextTrimming.CharacterEllipsis;
+                text.Trimming      = TextTrimming.CharacterEllipsis;
 
                 dc.DrawText(text, new Point(rect.X + 6, rect.Y + (rect.Height - text.Height) / 2));
             }
+        }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        var pos = e.GetPosition(this);
+        for (int i = 0; i < _layoutRects.Count; i++)
+        {
+            if (!_layoutRects[i].Contains(pos)) continue;
+            _ttName.Text  = _layoutItems[i].Name;
+            _ttCount.Text = $"{_layoutItems[i].Value:N0} elements";
+            return;
         }
     }
 
@@ -84,10 +138,10 @@ public class TreemapPanel : FrameworkElement
     {
         var rects = new List<Rect>();
         double x = bounds.X, y = bounds.Y;
-        double remainingWidth = bounds.Width;
+        double remainingWidth  = bounds.Width;
         double remainingHeight = bounds.Height;
-        bool horizontal = bounds.Width >= bounds.Height;
-        double remainingValue = totalValue;
+        bool horizontal        = bounds.Width >= bounds.Height;
+        double remainingValue  = totalValue;
 
         foreach (var item in items)
         {

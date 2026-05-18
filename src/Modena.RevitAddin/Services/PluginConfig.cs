@@ -6,9 +6,12 @@ namespace Modena.RevitAddin.Services;
 /// <summary>Thresholds and enabled flag for a single health check rule.</summary>
 public class HealthCheckRule
 {
-    public bool Enabled          { get; set; } = true;
-    public int  HighThreshold    { get; set; }
-    public int  MediumThreshold  { get; set; }
+    public bool    Enabled         { get; set; } = true;
+    public int     HighThreshold   { get; set; }
+    public int     MediumThreshold { get; set; }
+
+    /// <summary>Optional discipline override (e.g. "Architecture", "MEP", "Structure"). Null means use the check's built-in default.</summary>
+    public string? Discipline      { get; set; }
 
     internal string ResolvePriority(int count) =>
         count > HighThreshold ? "HIGH" : count > MediumThreshold ? "MEDIUM" : "LOW";
@@ -30,6 +33,9 @@ public class HealthChecksConfig
 /// </summary>
 public class PluginConfig
 {
+    /// <summary>Warnings accumulated during Load/Validate — exposed to the UI via the ViewModel.</summary>
+    public List<string> ValidationWarnings { get; } = new();
+
     public int RefreshIntervalMinutes { get; set; } = 5;
     public bool AutoRefreshEnabled { get; set; } = true;
     public int RequestTimeoutSeconds { get; set; } = 30;
@@ -57,7 +63,9 @@ public class PluginConfig
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
         {
             LogService.Info($"Config file not found at '{path}', using defaults.");
-            return new PluginConfig();
+            var cfg = new PluginConfig();
+            cfg.ValidationWarnings.Add($"Configuration file not found at '{System.IO.Path.GetFileName(path)}'. Using built-in defaults.");
+            return cfg;
         }
 
         try
@@ -71,38 +79,40 @@ public class PluginConfig
         catch (Exception ex)
         {
             LogService.Error($"Failed to read config from '{path}', using defaults.", ex);
-            return new PluginConfig();
+            var cfg = new PluginConfig();
+            cfg.ValidationWarnings.Add($"Could not read '{System.IO.Path.GetFileName(path)}': {ex.Message}. Using built-in defaults.");
+            return cfg;
         }
     }
 
     /// <summary>
     /// Clamps all values to safe bounds and resets any unrecognised strings to defaults.
-    /// Logs a warning for each correction so admins can see exactly what was wrong.
+    /// Logs and records a warning for each correction so both the UI and admins can see what was wrong.
     /// </summary>
     private void Validate()
     {
         if (RefreshIntervalMinutes < 1 || RefreshIntervalMinutes > 60)
         {
-            LogService.Warn($"Config: RefreshIntervalMinutes={RefreshIntervalMinutes} out of range [1,60]; resetting to 5.");
+            RecordWarning($"RefreshIntervalMinutes={RefreshIntervalMinutes} out of range [1,60]; reset to 5.");
             RefreshIntervalMinutes = 5;
         }
 
         if (RequestTimeoutSeconds < 5 || RequestTimeoutSeconds > 300)
         {
-            LogService.Warn($"Config: RequestTimeoutSeconds={RequestTimeoutSeconds} out of range [5,300]; resetting to 30.");
+            RecordWarning($"RequestTimeoutSeconds={RequestTimeoutSeconds} out of range [5,300]; reset to 30.");
             RequestTimeoutSeconds = 30;
         }
 
         if (FamilyCacheMinutes < 0 || FamilyCacheMinutes > 120)
         {
-            LogService.Warn($"Config: FamilyCacheMinutes={FamilyCacheMinutes} out of range [0,120]; resetting to 10.");
+            RecordWarning($"FamilyCacheMinutes={FamilyCacheMinutes} out of range [0,120]; reset to 10.");
             FamilyCacheMinutes = 10;
         }
 
         var validLevels = new[] { "debug", "information", "warning", "error" };
         if (!validLevels.Contains((LoggingLevel ?? string.Empty).ToLowerInvariant()))
         {
-            LogService.Warn($"Config: LoggingLevel='{LoggingLevel}' is not recognised; resetting to 'Information'.");
+            RecordWarning($"LoggingLevel='{LoggingLevel}' is not recognised; reset to 'Information'.");
             LoggingLevel = "Information";
         }
 
@@ -112,7 +122,7 @@ public class PluginConfig
                      && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
             if (!valid)
             {
-                LogService.Warn($"Config: ApsBaseUrl='{ApsBaseUrl}' is not a valid URL; resetting to default.");
+                RecordWarning($"ApsBaseUrl='{ApsBaseUrl}' is not a valid URL; reset to default.");
                 ApsBaseUrl = "https://developer.api.autodesk.com";
             }
         }
@@ -125,23 +135,29 @@ public class PluginConfig
         ValidateRule(nameof(HealthChecks.ImportedCadInstances), HealthChecks.ImportedCadInstances, 10,    3);
     }
 
-    private static void ValidateRule(string name, HealthCheckRule rule, int defaultHigh, int defaultMedium)
+    private void ValidateRule(string name, HealthCheckRule rule, int defaultHigh, int defaultMedium)
     {
         if (rule.HighThreshold < 0)
         {
-            LogService.Warn($"Config: HealthChecks.{name}.HighThreshold={rule.HighThreshold} is negative; resetting to {defaultHigh}.");
+            RecordWarning($"HealthChecks.{name}.HighThreshold={rule.HighThreshold} is negative; reset to {defaultHigh}.");
             rule.HighThreshold = defaultHigh;
         }
         if (rule.MediumThreshold < 0)
         {
-            LogService.Warn($"Config: HealthChecks.{name}.MediumThreshold={rule.MediumThreshold} is negative; resetting to {defaultMedium}.");
+            RecordWarning($"HealthChecks.{name}.MediumThreshold={rule.MediumThreshold} is negative; reset to {defaultMedium}.");
             rule.MediumThreshold = defaultMedium;
         }
         if (rule.MediumThreshold > rule.HighThreshold)
         {
-            LogService.Warn($"Config: HealthChecks.{name} MediumThreshold ({rule.MediumThreshold}) > HighThreshold ({rule.HighThreshold}); swapping.");
+            RecordWarning($"HealthChecks.{name}: MediumThreshold ({rule.MediumThreshold}) > HighThreshold ({rule.HighThreshold}); swapping.");
             (rule.HighThreshold, rule.MediumThreshold) = (rule.MediumThreshold, rule.HighThreshold);
         }
+    }
+
+    private void RecordWarning(string message)
+    {
+        LogService.Warn($"Config: {message}");
+        ValidationWarnings.Add(message);
     }
 
     private static string GetDefaultConfigPath()

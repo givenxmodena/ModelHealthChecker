@@ -213,13 +213,13 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 Count      = count,
                 Category   = "Model Quality",
                 Priority   = rule.ResolvePriority(count),
-                Discipline = "General"
+                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Mirrored Elements.", ex);
-            return new FailedCheckDto { Name = "Mirrored Elements", Count = 0, Category = "Model Quality", Priority = "LOW", Discipline = "General" };
+            return new FailedCheckDto { Name = "Mirrored Elements", Count = 0, Category = "Model Quality", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
         }
     }
 
@@ -239,13 +239,13 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 Count      = count,
                 Category   = "Spatial",
                 Priority   = rule.ResolvePriority(count),
-                Discipline = "Architecture"
+                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "Architecture" : rule.Discipline!
             };
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Unplaced Rooms.", ex);
-            return new FailedCheckDto { Name = "Unplaced Rooms", Count = 0, Category = "Spatial", Priority = "LOW", Discipline = "Architecture" };
+            return new FailedCheckDto { Name = "Unplaced Rooms", Count = 0, Category = "Spatial", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "Architecture" : rule.Discipline! };
         }
     }
 
@@ -270,13 +270,13 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 Count      = duplicates,
                 Category   = "Naming",
                 Priority   = rule.ResolvePriority(duplicates),
-                Discipline = "General"
+                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Duplicate Type Names.", ex);
-            return new FailedCheckDto { Name = "Duplicate Type Names", Count = 0, Category = "Naming", Priority = "LOW", Discipline = "General" };
+            return new FailedCheckDto { Name = "Duplicate Type Names", Count = 0, Category = "Naming", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
         }
     }
 
@@ -295,13 +295,13 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 Count      = count,
                 Category   = "Performance",
                 Priority   = rule.ResolvePriority(count),
-                Discipline = "General"
+                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Detail Line Items.", ex);
-            return new FailedCheckDto { Name = "Detail Line Items", Count = 0, Category = "Performance", Priority = "LOW", Discipline = "General" };
+            return new FailedCheckDto { Name = "Detail Line Items", Count = 0, Category = "Performance", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
         }
     }
 
@@ -320,13 +320,13 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 Count      = count,
                 Category   = "Performance",
                 Priority   = rule.ResolvePriority(count),
-                Discipline = "General"
+                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Imported CAD Instances.", ex);
-            return new FailedCheckDto { Name = "Imported CAD Instances", Count = 0, Category = "Performance", Priority = "LOW", Discipline = "General" };
+            return new FailedCheckDto { Name = "Imported CAD Instances", Count = 0, Category = "Performance", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
         }
     }
 

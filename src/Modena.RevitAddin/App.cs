@@ -2,6 +2,7 @@ using Autodesk.Revit.UI;
 using Modena.RevitAddin.Services;
 using System.IO;
 using System.Reflection;
+using System.Windows.Media.Imaging;
 
 namespace Modena.RevitAddin;
 
@@ -58,6 +59,9 @@ public class App : IExternalApplication
             buttonData.LongDescription =
                 "Displays model health KPIs, failed checks, families, and element categories for the active Revit model.";
 
+            buttonData.LargeImage = LoadIcon("Resources/health-check_32.png");
+            buttonData.Image      = LoadIcon("Resources/health-check_16.png");
+
             panel.AddItem(buttonData);
 
             LogService.Info("Modena Model Health Checker add-in started successfully.");
@@ -74,5 +78,27 @@ public class App : IExternalApplication
     {
         LogService.Info("Modena Model Health Checker add-in shutting down.");
         return Result.Succeeded;
+    }
+
+    private static BitmapImage? LoadIcon(string resourcePath)
+    {
+        try
+        {
+            var assemblyDir = Path.GetDirectoryName(typeof(App).Assembly.Location) ?? string.Empty;
+            var fullPath    = Path.Combine(assemblyDir, resourcePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(fullPath))
+            {
+                LogService.Warn($"Icon not found at '{fullPath}'.");
+                return null;
+            }
+            var img = new BitmapImage(new Uri(fullPath, UriKind.Absolute));
+            img.Freeze();
+            return img;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn($"Could not load icon '{resourcePath}': {ex.Message}");
+            return null;
+        }
     }
 }

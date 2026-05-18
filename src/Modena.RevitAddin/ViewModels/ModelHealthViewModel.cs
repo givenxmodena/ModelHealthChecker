@@ -40,6 +40,11 @@ public class ModelHealthViewModel : BaseViewModel
 
     public ModelIdentity ModelIdentity { get; }
 
+    /// <summary>True when the loaded config has validation warnings to surface in the UI.</summary>
+    public bool   HasConfigWarning  { get; }
+    /// <summary>Human-readable summary of the config warning(s).</summary>
+    public string ConfigWarningText { get; }
+
     public string ModelName
     {
         get => _modelName;
@@ -144,6 +149,15 @@ public class ModelHealthViewModel : BaseViewModel
         // the moment the window opens, before any extraction runs (satisfies MHC-7 AC1).
         ModelName   = documentContext.DocumentTitle ?? string.Empty;
         ProjectName = ExtractProjectNameFromContext(documentContext);
+
+        var warnings = _config.ValidationWarnings;
+        HasConfigWarning = warnings.Count > 0;
+        ConfigWarningText = warnings.Count switch
+        {
+            0 => string.Empty,
+            1 => $"Configuration warning: {warnings[0]}",
+            _ => $"Configuration has {warnings.Count} issues — check app logs for details."
+        };
 
         LoadCommand    = new AsyncRelayCommand(ExecuteLoadAsync);
         RefreshCommand = new AsyncRelayCommand(ExecuteRefreshAsync);

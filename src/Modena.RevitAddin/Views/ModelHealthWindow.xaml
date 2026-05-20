@@ -367,50 +367,6 @@
                         </Border>
                     </Grid>
 
-                    <!-- Model Element Distribution (treemap-style) -->
-                    <Border Style="{StaticResource DashboardCard}" Margin="0,0,0,16">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,12">
-                                <TextBlock Text="{Binding Summary.ModelElements, StringFormat='Total Elements: {0:N0}'}"
-                                           DockPanel.Dock="Right" Foreground="{StaticResource TextMuted}" FontSize="11"/>
-                                <TextBlock Text="MODEL ELEMENT DISTRIBUTION" Style="{StaticResource SectionHeader}" Margin="0"/>
-                            </DockPanel>
-                            <local:TreemapPanel Height="240" ItemsSource="{Binding Categories}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Top Families by Size -->
-                    <Border Style="{StaticResource DashboardCard}" Margin="0,0,0,16">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,12">
-                                <!-- Inline loading indicator shown while family sizes are being extracted -->
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
-                                            Visibility="{Binding IsFamiliesLoading, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="⟳" FontSize="11" Foreground="{StaticResource AccentBlue}"
-                                               Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Loading..." Foreground="{StaticResource TextMuted}"
-                                               FontSize="11" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <TextBlock Text="TOP FAMILIES BY USAGE" Style="{StaticResource SectionHeader}" Margin="0"/>
-                            </DockPanel>
-                            <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{Binding Families}" Margin="0,0,10,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <DockPanel Margin="0,0,0,8">
-                                                <TextBlock Text="{Binding InstanceCount, StringFormat='{}{0} placed'}" DockPanel.Dock="Right"
-                                                           Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
-                                                           FontSize="12" VerticalAlignment="Center"/>
-                                            </DockPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </StackPanel>
-                    </Border>
-
                     <!-- Failed Checks Detail Table -->
                     <Border Style="{StaticResource DashboardCard}" Padding="0" Margin="0,0,0,16">
                         <StackPanel>
@@ -522,6 +478,145 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
+                    </Border>
+
+                    <!-- Model Element Distribution (treemap-style) -->
+                    <Border Style="{StaticResource DashboardCard}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,12">
+                                <TextBlock Text="{Binding Summary.ModelElements, StringFormat='Total Elements: {0:N0}'}"
+                                           DockPanel.Dock="Right" Foreground="{StaticResource TextMuted}" FontSize="11"/>
+                                <TextBlock Text="MODEL ELEMENT DISTRIBUTION" Style="{StaticResource SectionHeader}" Margin="0"/>
+                            </DockPanel>
+                            <local:TreemapPanel Height="240" ItemsSource="{Binding Categories}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Top Families — By Usage / By Size tabs -->
+                    <Border Style="{StaticResource DashboardCard}" Margin="0,0,0,16">
+                        <TabControl Background="Transparent" BorderThickness="0" Padding="0">
+                            <TabControl.Template>
+                                <ControlTemplate TargetType="TabControl">
+                                    <StackPanel>
+                                        <!-- Header row: section label + tab headers + loading indicator -->
+                                        <DockPanel Margin="0,0,0,0">
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                                        Visibility="{Binding IsFamiliesLoading, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="⟳" FontSize="11" Foreground="{StaticResource AccentBlue}"
+                                                           Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Loading..." Foreground="{StaticResource TextMuted}"
+                                                           FontSize="11" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="FAMILIES" Style="{StaticResource SectionHeader}"
+                                                           Margin="0" VerticalAlignment="Center"/>
+                                                <TabPanel IsItemsHost="True" Background="Transparent" Margin="16,0,0,0"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <!-- Tab content -->
+                                        <Border BorderThickness="0,1,0,0" BorderBrush="#2d323c" Padding="0,12,0,0">
+                                            <ContentPresenter ContentSource="SelectedContent"/>
+                                        </Border>
+                                    </StackPanel>
+                                </ControlTemplate>
+                            </TabControl.Template>
+                            <TabControl.Resources>
+                                <Style TargetType="TabItem">
+                                    <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+                                    <Setter Property="FontSize" Value="11"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TabItem">
+                                                <Border Name="Root" Padding="0,6,12,6"
+                                                        BorderThickness="0,0,0,2" BorderBrush="Transparent">
+                                                    <TextBlock Text="{TemplateBinding Header}"
+                                                               Foreground="{TemplateBinding Foreground}"
+                                                               FontSize="{TemplateBinding FontSize}"
+                                                               FontWeight="{TemplateBinding FontWeight}"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBlue}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TabControl.Resources>
+
+                            <!-- Tab 1: By Usage -->
+                            <TabItem Header="BY USAGE">
+                                <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding Families}" Margin="0,0,10,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,0,0,8">
+                                                    <TextBlock Text="{Binding InstanceCount, StringFormat='{}{0} placed'}" DockPanel.Dock="Right"
+                                                               Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
+                                                               FontSize="12" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- Tab 2: By Size (on-demand) -->
+                            <TabItem Header="BY SIZE">
+                                <Grid MinHeight="120">
+                                    <!-- Prompt: not yet extracted -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Visibility="{Binding ShowSizePrompt, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="Family file sizes are not loaded by default."
+                                                   Foreground="{StaticResource TextMuted}" FontSize="12"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="This may take several minutes on large models."
+                                                   Foreground="{StaticResource TextMuted}" FontSize="11"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                                        <Button Content="Extract Sizes" Style="{StaticResource RefreshButton}"
+                                                Command="{Binding LoadFamilySizesCommand}"
+                                                HorizontalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- Extracting: progress indicator -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Visibility="{Binding IsSizeExtracting, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="⟳" FontSize="32" Foreground="{StaticResource AccentBlue}"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                        <TextBlock Text="{Binding SizeProgressText}" Foreground="{StaticResource TextSecondary}"
+                                                   FontSize="13" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- Results: sorted by size descending -->
+                                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  Visibility="{Binding ShowSizeResults, Converter={StaticResource BoolToVis}}">
+                                        <ItemsControl ItemsSource="{Binding FamiliesBySize}" Margin="0,0,10,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,0,0,8">
+                                                        <TextBlock Text="{Binding Kb, StringFormat='{}{0:N0} KB'}" DockPanel.Dock="Right"
+                                                                   Foreground="{StaticResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimary}"
+                                                                   FontSize="12" VerticalAlignment="Center"/>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
                     </Border>
 
                 </StackPanel>

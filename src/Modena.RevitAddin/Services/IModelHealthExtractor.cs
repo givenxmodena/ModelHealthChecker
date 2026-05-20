@@ -24,4 +24,14 @@ public interface IModelHealthExtractor
     /// Called after ExtractFastAsync so the dashboard is already visible.
     /// </summary>
     Task<List<FamilyDto>> ExtractFamilySizesAsync(IRevitDocumentContext context, CancellationToken ct);
+
+    /// <summary>
+    /// On-demand phase — opens each editable family, saves to a temp file, measures KB, then closes.
+    /// Invokes onProgress(current, total) after each family so the caller can update a progress indicator.
+    /// Only called when the user explicitly requests sizes; can take several minutes on large models.
+    /// </summary>
+    Task<List<FamilyDto>> ExtractFamilySizesKbAsync(
+        IRevitDocumentContext context,
+        Action<int, int>? onProgress,
+        CancellationToken ct);
 }

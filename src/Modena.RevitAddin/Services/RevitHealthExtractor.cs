@@ -1,3 +1,4 @@
+using System.IO;
 using Autodesk.Revit.DB;
 using Modena.RevitAddin.RevitApi;
 using Modena.Shared.DTOs;
@@ -65,6 +66,69 @@ public class RevitHealthExtractor : IModelHealthExtractor
         var families = ExtractFamilySizesCore(ct);
         LogService.Info($"RevitHealthExtractor: Family extraction complete. Count={families.Count}");
         return Task.FromResult(families);
+    }
+
+    /// <summary>
+    /// On-demand extraction of family file sizes in KB. Opens each editable family via EditFamily(),
+    /// saves to a temp .rfa to measure byte length, then closes and deletes the temp file.
+    /// Reports progress after each family so the UI can show a running count.
+    /// </summary>
+    public async Task<List<FamilyDto>> ExtractFamilySizesKbAsync(
+        IRevitDocumentContext context,
+        Action<int, int>? onProgress,
+        CancellationToken ct)
+    {
+        LogService.Info("RevitHealthExtractor: Starting on-demand family KB extraction.");
+
+        var families = new FilteredElementCollector(_doc)
+            .OfClass(typeof(Family))
+            .Cast<Family>()
+            .Where(f => f.IsEditable)
+            .ToList();
+
+        var results = new List<FamilyDto>();
+        var total   = families.Count;
+
+        for (int i = 0; i < families.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var family  = families[i];
+            int sizeKb  = 0;
+
+            try
+            {
+                var familyDoc = _doc.EditFamily(family);
+                if (familyDoc != null)
+                {
+                    var tempPath = Path.Combine(Path.GetTempPath(), $"mhc_{Guid.NewGuid():N}.rfa");
+                    try
+                    {
+                        familyDoc.SaveAs(tempPath, new SaveAsOptions { OverwriteExistingFile = true });
+                        sizeKb = (int)(new FileInfo(tempPath).Length / 1024);
+                    }
+                    finally
+                    {
+                        try { familyDoc.Close(false); } catch { }
+                        try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                    }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                LogService.Warn($"Family KB extraction skipped for '{family.Name}': {ex.Message}");
+            }
+
+            if (sizeKb > 0)
+                results.Add(new FamilyDto { Name = family.Name, Kb = sizeKb });
+
+            onProgress?.Invoke(i + 1, total);
+            await Task.Yield();
+        }
+
+        var sorted = results.OrderByDescending(f => f.Kb).Take(20).ToList();
+        LogService.Info($"RevitHealthExtractor: Family KB extraction complete. Count={sorted.Count}");
+        return sorted;
     }
 
     private DashboardResponse BuildResponse(

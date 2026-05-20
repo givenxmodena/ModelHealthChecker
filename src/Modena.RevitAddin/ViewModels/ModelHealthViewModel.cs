@@ -25,6 +25,9 @@ public class ModelHealthViewModel : BaseViewModel
     private bool _timerStarted;
     private bool _isSilentRefreshing;
     private DateTime? _familiesCachedAt;
+    private bool _isSizeExtracting;
+    private bool _hasSizeData;
+    private string _sizeProgressText = string.Empty;
 
     // Backing fields
     private string _modelName = string.Empty;
@@ -121,14 +124,57 @@ public class ModelHealthViewModel : BaseViewModel
         private set => SetProperty(ref _summary, value);
     }
 
-    public ObservableCollection<FailedCheckDto> FailedChecks { get; } = new();
-    public ObservableCollection<MetricDto>      Metrics      { get; } = new();
-    public ObservableCollection<CategoryDto>    Categories   { get; } = new();
-    public ObservableCollection<FamilyDto>      Families     { get; } = new();
-    public ObservableCollection<string>         PassedChecks { get; } = new();
+    public ObservableCollection<FailedCheckDto> FailedChecks   { get; } = new();
+    public ObservableCollection<MetricDto>      Metrics        { get; } = new();
+    public ObservableCollection<CategoryDto>    Categories     { get; } = new();
+    public ObservableCollection<FamilyDto>      Families       { get; } = new();
+    public ObservableCollection<FamilyDto>      FamiliesBySize { get; } = new();
+    public ObservableCollection<string>         PassedChecks   { get; } = new();
 
-    public AsyncRelayCommand LoadCommand    { get; }
-    public AsyncRelayCommand RefreshCommand { get; }
+    /// <summary>True while the on-demand KB extraction is running.</summary>
+    public bool IsSizeExtracting
+    {
+        get => _isSizeExtracting;
+        private set
+        {
+            if (SetProperty(ref _isSizeExtracting, value))
+            {
+                OnPropertyChanged(nameof(ShowSizePrompt));
+                OnPropertyChanged(nameof(ShowSizeResults));
+            }
+        }
+    }
+
+    /// <summary>True once KB extraction has completed at least once.</summary>
+    public bool HasSizeData
+    {
+        get => _hasSizeData;
+        private set
+        {
+            if (SetProperty(ref _hasSizeData, value))
+            {
+                OnPropertyChanged(nameof(ShowSizePrompt));
+                OnPropertyChanged(nameof(ShowSizeResults));
+            }
+        }
+    }
+
+    /// <summary>Shows the "Extract Sizes" prompt — before any extraction has run.</summary>
+    public bool ShowSizePrompt  => !_isSizeExtracting && !_hasSizeData;
+
+    /// <summary>Shows the results list — extraction done and not currently re-running.</summary>
+    public bool ShowSizeResults => !_isSizeExtracting && _hasSizeData;
+
+    /// <summary>Running status text shown while KB extraction is in progress.</summary>
+    public string SizeProgressText
+    {
+        get => _sizeProgressText;
+        private set => SetProperty(ref _sizeProgressText, value);
+    }
+
+    public AsyncRelayCommand LoadCommand           { get; }
+    public AsyncRelayCommand RefreshCommand        { get; }
+    public AsyncRelayCommand LoadFamilySizesCommand { get; }
 
     public ModelHealthViewModel(
         ModelIdentity modelIdentity,
@@ -159,8 +205,9 @@ public class ModelHealthViewModel : BaseViewModel
             _ => $"Configuration has {warnings.Count} issues — check app logs for details."
         };
 
-        LoadCommand    = new AsyncRelayCommand(ExecuteLoadAsync);
-        RefreshCommand = new AsyncRelayCommand(ExecuteRefreshAsync);
+        LoadCommand            = new AsyncRelayCommand(ExecuteLoadAsync);
+        RefreshCommand         = new AsyncRelayCommand(ExecuteRefreshAsync);
+        LoadFamilySizesCommand = new AsyncRelayCommand(ExecuteLoadFamilySizesAsync);
     }
 
     public bool IsTimerRunning => _timer.IsRunning;
@@ -388,6 +435,47 @@ public class ModelHealthViewModel : BaseViewModel
             catch { }
         }
         return string.Empty;
+    }
+
+    private async Task ExecuteLoadFamilySizesAsync()
+    {
+        if (_isSizeExtracting) return;
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        IsSizeExtracting = true;
+        SizeProgressText = "Starting extraction...";
+        LogService.Info("ViewModel: On-demand family KB extraction started.");
+
+        try
+        {
+            var families = await _extractor.ExtractFamilySizesKbAsync(
+                _documentContext,
+                (current, total) => SizeProgressText = $"Extracting... {current} of {total}",
+                ct);
+
+            ct.ThrowIfCancellationRequested();
+            ReplaceCollection(FamiliesBySize, families);
+            HasSizeData      = true;
+            SizeProgressText = $"Done — {families.Count} families measured";
+            LogService.Info($"ViewModel: Family KB extraction complete. Count={families.Count}");
+        }
+        catch (OperationCanceledException)
+        {
+            SizeProgressText = "Extraction cancelled.";
+            LogService.Info("ViewModel: Family KB extraction cancelled.");
+        }
+        catch (Exception ex)
+        {
+            SizeProgressText = "Extraction failed — check app logs.";
+            LogService.Error("ViewModel: Family KB extraction failed.", ex);
+        }
+        finally
+        {
+            IsSizeExtracting = false;
+        }
     }
 
     /// <summary>Stops the timer and releases resources. Called when the window closes.</summary>

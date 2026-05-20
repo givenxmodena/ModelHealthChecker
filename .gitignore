@@ -36,3 +36,10 @@ packages/
 # Log files (folder tracked via .gitkeep; actual logs are local-only)
 logs/*.log
 **/logs/*.log
+
+# Local reference folders (not part of the codebase)
+Best Practices/
+.claude/
+
+# Build cache files
+*.lscache

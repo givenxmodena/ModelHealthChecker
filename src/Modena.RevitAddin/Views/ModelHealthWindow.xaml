@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Modena.RevitAddin.ViewModels"
         xmlns:local="clr-namespace:Modena.RevitAddin.Views"
-        Title="Modena Model Health Checker | v1.0.3"
+        Title="Modena Model Health Checker | v1.0.4"
         Width="1100" Height="750"
         MinWidth="800" MinHeight="500"
         Background="#0f1115"
@@ -134,7 +134,7 @@
                         </Border>
                         <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource TextMuted}"
                                    FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <Button Content="⟳  Re-Analyze Model" Style="{StaticResource RefreshButton}"
+                        <Button Content="⟳  Refresh" Style="{StaticResource RefreshButton}"
                                 Command="{Binding LoadCommand}"
                                 IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolToVis}, ConverterParameter=bool}"/>
                     </StackPanel>
@@ -142,7 +142,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="4" Height="24" Background="{StaticResource AccentBlue}"
                                     CornerRadius="2" Margin="0,0,8,0"/>
-                            <TextBlock Text="Modena Model Health Checker" Foreground="White"
+                            <TextBlock Text="Model Health Checker" Foreground="White"
                                        FontSize="18" FontWeight="Bold"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -154,11 +154,6 @@
                             <TextBlock Foreground="{StaticResource TextMuted}" FontSize="12">
                                 <Run Text="Project: "/>
                                 <Run Text="{Binding ProjectName, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontWeight="Medium"/>
-                            </TextBlock>
-                            <TextBlock Text="  |  " Foreground="#374151" FontSize="12"/>
-                            <TextBlock Foreground="{StaticResource TextMuted}" FontSize="12">
-                                <Run Text="Last Analyzed: "/>
-                                <Run Text="{Binding LastRefreshedText, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontWeight="Medium"/>
                             </TextBlock>
                         </StackPanel>
                     </StackPanel>
@@ -247,7 +242,21 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="PASS RATE" Foreground="{StaticResource TextMuted}"
                                                FontSize="10" FontWeight="SemiBold"/>
-                                    <TextBlock Text="Good" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding PassRateLabel}" FontSize="18" FontWeight="Bold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource AccentGreen}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding PassRateLabel}" Value="Fair">
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentAmber}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding PassRateLabel}" Value="Poor">
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentRed}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -262,7 +271,7 @@
                         <!-- Failed Checks -->
                         <Border Style="{StaticResource DashboardCard}" Margin="3,0,3,0">
                             <StackPanel>
-                                <TextBlock Text="FAILED CHECKS" Foreground="{StaticResource AccentRed}"
+                                <TextBlock Text="ISSUES FOUND" Foreground="{StaticResource AccentRed}"
                                            FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                 <TextBlock Text="{Binding Summary.FailedChecks}" FontSize="24" FontWeight="Bold"
                                            Foreground="{StaticResource AccentRed}"/>
@@ -457,6 +466,34 @@
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
+                                    <DataGridTemplateColumn Header="" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Show"
+                                                        Command="{Binding DataContext.ShowInModelCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding CanNavigate, Converter={StaticResource BoolToVis}}"
+                                                        Cursor="Hand" FontSize="11" Padding="10,4"
+                                                        Background="{StaticResource AccentBlue}"
+                                                        Foreground="White" BorderThickness="0">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="{TemplateBinding Background}"
+                                                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="#2563eb"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </StackPanel>

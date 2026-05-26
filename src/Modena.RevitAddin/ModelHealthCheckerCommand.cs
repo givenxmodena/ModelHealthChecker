@@ -32,7 +32,7 @@ public class ModelHealthCheckerCommand : IExternalCommand
                 return Result.Failed;
             }
 
-            var documentContext = new RevitDocumentContext(doc, uiApp.Application.VersionNumber);
+            var documentContext = new RevitDocumentContext(doc, uiApp.ActiveUIDocument, uiApp.Application.VersionNumber);
             var contextService = new RevitContextService(documentContext);
             var identity = contextService.BuildModelIdentity();
 

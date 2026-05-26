@@ -15,9 +15,9 @@ public partial class ModelHealthWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         Closed += OnClosed;
-        // Auto-trigger extraction once the window has rendered its initial state,
-        // so the user sees the model name immediately and data loads without a button click.
-        ContentRendered += (_, _) => viewModel.LoadCommand.Execute(null);
+        // On first render: restore cached data (if any) then background-refresh,
+        // or do a full interactive load when no cache exists for this model.
+        ContentRendered += async (_, _) => await viewModel.InitializeAsync();
     }
 
     private void OnClosed(object? sender, EventArgs e)

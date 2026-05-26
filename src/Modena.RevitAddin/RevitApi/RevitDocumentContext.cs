@@ -1,4 +1,6 @@
+using System.Linq;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
 using Modena.RevitAddin.Services;
 
 namespace Modena.RevitAddin;
@@ -9,12 +11,14 @@ namespace Modena.RevitAddin;
 /// </summary>
 public class RevitDocumentContext : RevitApi.IRevitDocumentContext
 {
-    private readonly Document _doc;
-    private readonly string _revitVersion;
+    private readonly Document    _doc;
+    private readonly UIDocument? _uiDoc;
+    private readonly string      _revitVersion;
 
-    public RevitDocumentContext(Document document, string revitVersion)
+    public RevitDocumentContext(Document document, UIDocument? uiDocument, string revitVersion)
     {
-        _doc = document ?? throw new ArgumentNullException(nameof(document));
+        _doc          = document ?? throw new ArgumentNullException(nameof(document));
+        _uiDoc        = uiDocument;
         _revitVersion = revitVersion ?? string.Empty;
     }
 
@@ -112,5 +116,19 @@ public class RevitDocumentContext : RevitApi.IRevitDocumentContext
             // This would need to be resolved via APS Data Management API on the backend.
             return null;
         }
+    }
+
+    public void ShowElements(IReadOnlyList<long> elementIds)
+    {
+        if (_uiDoc == null)
+            throw new InvalidOperationException("No UIDocument available for navigation.");
+        if (elementIds == null || elementIds.Count == 0) return;
+
+#if NET48
+        var ids = elementIds.Select(id => new ElementId((int)id)).ToList();
+#else
+        var ids = elementIds.Select(id => new ElementId(id)).ToList();
+#endif
+        _uiDoc.ShowElements(new System.Collections.Generic.List<ElementId>(ids));
     }
 }

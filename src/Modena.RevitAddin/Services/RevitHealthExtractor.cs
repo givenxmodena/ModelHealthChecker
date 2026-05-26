@@ -265,18 +265,21 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var count = new FilteredElementCollector(_doc)
+            var ids = new FilteredElementCollector(_doc)
                 .WhereElementIsNotElementType()
                 .OfClass(typeof(FamilyInstance))
                 .Cast<FamilyInstance>()
-                .Count(fi => fi.Mirrored);
+                .Where(fi => fi.Mirrored)
+                .Select(fi => GetId(fi.Id))
+                .ToList();
 
             return new FailedCheckDto
             {
                 Name       = "Mirrored Elements",
-                Count      = count,
+                Count      = ids.Count,
+                ElementIds = ids,
                 Category   = "Model Quality",
-                Priority   = rule.ResolvePriority(count),
+                Priority   = rule.ResolvePriority(ids.Count),
                 Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
@@ -291,18 +294,21 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var count = new FilteredElementCollector(_doc)
+            var ids = new FilteredElementCollector(_doc)
                 .OfCategory(BuiltInCategory.OST_Rooms)
                 .WhereElementIsNotElementType()
                 .Cast<Autodesk.Revit.DB.Architecture.Room>()
-                .Count(r => r.Area <= 0);
+                .Where(r => r.Area <= 0)
+                .Select(r => GetId(r.Id))
+                .ToList();
 
             return new FailedCheckDto
             {
                 Name       = "Unplaced Rooms",
-                Count      = count,
+                Count      = ids.Count,
+                ElementIds = ids,
                 Category   = "Spatial",
-                Priority   = rule.ResolvePriority(count),
+                Priority   = rule.ResolvePriority(ids.Count),
                 Discipline = string.IsNullOrEmpty(rule.Discipline) ? "Architecture" : rule.Discipline!
             };
         }
@@ -317,23 +323,26 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var typeNames = new FilteredElementCollector(_doc)
+            var types = new FilteredElementCollector(_doc)
                 .WhereElementIsElementType()
-                .Select(e => e.Name)
-                .Where(n => !string.IsNullOrEmpty(n))
+                .Where(e => !string.IsNullOrEmpty(e.Name))
                 .ToList();
 
-            var duplicates = typeNames
-                .GroupBy(n => n)
+            var duplicateNames = types
+                .GroupBy(e => e.Name)
                 .Where(g => g.Count() > 1)
-                .Sum(g => g.Count() - 1);
+                .ToList();
+
+            var ids   = duplicateNames.SelectMany(g => g.Skip(1)).Select(e => GetId(e.Id)).ToList();
+            var count = duplicateNames.Sum(g => g.Count() - 1);
 
             return new FailedCheckDto
             {
                 Name       = "Duplicate Type Names",
-                Count      = duplicates,
+                Count      = count,
+                ElementIds = ids,
                 Category   = "Naming",
-                Priority   = rule.ResolvePriority(duplicates),
+                Priority   = rule.ResolvePriority(count),
                 Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
@@ -348,17 +357,19 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var count = new FilteredElementCollector(_doc)
+            var ids = new FilteredElementCollector(_doc)
                 .OfCategory(BuiltInCategory.OST_Lines)
                 .WhereElementIsNotElementType()
-                .Count();
+                .Select(e => GetId(e.Id))
+                .ToList();
 
             return new FailedCheckDto
             {
                 Name       = "Detail Line Items",
-                Count      = count,
+                Count      = ids.Count,
+                ElementIds = ids,
                 Category   = "Performance",
-                Priority   = rule.ResolvePriority(count),
+                Priority   = rule.ResolvePriority(ids.Count),
                 Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
@@ -373,17 +384,19 @@ public class RevitHealthExtractor : IModelHealthExtractor
     {
         try
         {
-            var count = new FilteredElementCollector(_doc)
+            var ids = new FilteredElementCollector(_doc)
                 .OfClass(typeof(ImportInstance))
                 .WhereElementIsNotElementType()
-                .Count();
+                .Select(e => GetId(e.Id))
+                .ToList();
 
             return new FailedCheckDto
             {
                 Name       = "Imported CAD Instances",
-                Count      = count,
+                Count      = ids.Count,
+                ElementIds = ids,
                 Category   = "Performance",
-                Priority   = rule.ResolvePriority(count),
+                Priority   = rule.ResolvePriority(ids.Count),
                 Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
             };
         }
@@ -392,6 +405,15 @@ public class RevitHealthExtractor : IModelHealthExtractor
             LogService.Error("Health check failed: Imported CAD Instances.", ex);
             return new FailedCheckDto { Name = "Imported CAD Instances", Count = 0, Category = "Performance", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
         }
+    }
+
+    private static long GetId(ElementId id)
+    {
+#if NET48
+        return (long)id.IntegerValue;
+#else
+        return id.Value;
+#endif
     }
 
     private static string BuildModelKey(IRevitDocumentContext context)

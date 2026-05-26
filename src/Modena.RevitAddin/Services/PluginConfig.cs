@@ -36,7 +36,7 @@ public class PluginConfig
     /// <summary>Warnings accumulated during Load/Validate — exposed to the UI via the ViewModel.</summary>
     public List<string> ValidationWarnings { get; } = new();
 
-    public int RefreshIntervalMinutes { get; set; } = 5;
+    public int RefreshIntervalMinutes { get; set; } = 30;
     public bool AutoRefreshEnabled { get; set; } = true;
     public int RequestTimeoutSeconds { get; set; } = 30;
     public string LoggingLevel { get; set; } = "Information";
@@ -93,8 +93,8 @@ public class PluginConfig
     {
         if (RefreshIntervalMinutes < 1 || RefreshIntervalMinutes > 60)
         {
-            RecordWarning($"RefreshIntervalMinutes={RefreshIntervalMinutes} out of range [1,60]; reset to 5.");
-            RefreshIntervalMinutes = 5;
+            RecordWarning($"RefreshIntervalMinutes={RefreshIntervalMinutes} out of range [1,60]; reset to 30.");
+            RefreshIntervalMinutes = 30;
         }
 
         if (RequestTimeoutSeconds < 5 || RequestTimeoutSeconds > 300)

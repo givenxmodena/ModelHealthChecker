@@ -25,4 +25,10 @@ public interface IRevitDocumentContext
     /// The ACC version URN for cloud models, if available.
     /// </summary>
     string? VersionUrn { get; }
+
+    /// <summary>
+    /// Selects the specified elements and zooms the active Revit view to them.
+    /// Throws if no view is currently open or the elements cannot be shown.
+    /// </summary>
+    void ShowElements(IReadOnlyList<long> elementIds);
 }

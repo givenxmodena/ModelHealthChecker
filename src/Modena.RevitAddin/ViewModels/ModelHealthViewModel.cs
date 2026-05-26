@@ -20,11 +20,13 @@ public class ModelHealthViewModel : BaseViewModel
     private readonly IRevitDocumentContext _documentContext;
     private readonly PluginConfig _config;
     private readonly RefreshTimerService _timer;
+    private readonly DashboardCacheService _cache;
     private readonly Dispatcher _dispatcher;
     private CancellationTokenSource? _cts;
     private bool _timerStarted;
     private bool _isSilentRefreshing;
     private DateTime? _familiesCachedAt;
+    private string _cacheKey = string.Empty;
     private bool _isSizeExtracting;
     private bool _hasSizeData;
     private string _sizeProgressText = string.Empty;
@@ -121,8 +123,20 @@ public class ModelHealthViewModel : BaseViewModel
     public SummaryDto Summary
     {
         get => _summary;
-        private set => SetProperty(ref _summary, value);
+        private set
+        {
+            if (SetProperty(ref _summary, value))
+                OnPropertyChanged(nameof(PassRateLabel));
+        }
     }
+
+    public string PassRateLabel => _summary.PassRate switch
+    {
+        >= 80 => "Excellent",
+        >= 60 => "Good",
+        >= 40 => "Fair",
+        _     => "Poor"
+    };
 
     public ObservableCollection<FailedCheckDto> FailedChecks   { get; } = new();
     public ObservableCollection<MetricDto>      Metrics        { get; } = new();
@@ -172,9 +186,10 @@ public class ModelHealthViewModel : BaseViewModel
         private set => SetProperty(ref _sizeProgressText, value);
     }
 
-    public AsyncRelayCommand LoadCommand           { get; }
-    public AsyncRelayCommand RefreshCommand        { get; }
+    public AsyncRelayCommand LoadCommand            { get; }
+    public AsyncRelayCommand RefreshCommand         { get; }
     public AsyncRelayCommand LoadFamilySizesCommand { get; }
+    public RelayCommand      ShowInModelCommand     { get; }
 
     public ModelHealthViewModel(
         ModelIdentity modelIdentity,
@@ -190,6 +205,7 @@ public class ModelHealthViewModel : BaseViewModel
         _config          = config          ?? throw new ArgumentNullException(nameof(config));
         _dispatcher      = dispatcher      ?? Dispatcher.CurrentDispatcher;
         _timer           = timer           ?? new RefreshTimerService();
+        _cache           = new DashboardCacheService();
 
         // Pre-populate from the document context so the header shows the model name
         // the moment the window opens, before any extraction runs (satisfies MHC-7 AC1).
@@ -208,12 +224,47 @@ public class ModelHealthViewModel : BaseViewModel
         LoadCommand            = new AsyncRelayCommand(ExecuteLoadAsync);
         RefreshCommand         = new AsyncRelayCommand(ExecuteRefreshAsync);
         LoadFamilySizesCommand = new AsyncRelayCommand(ExecuteLoadFamilySizesAsync);
+        ShowInModelCommand     = new RelayCommand(ExecuteShowInModel);
     }
 
     public bool IsTimerRunning => _timer.IsRunning;
 
     private async Task ExecuteLoadAsync()    => await FetchDataAsync(isRefresh: false, isSilent: false);
     private async Task ExecuteRefreshAsync() => await FetchDataAsync(isRefresh: true,  isSilent: false);
+
+    /// <summary>
+    /// Called once by the window on ContentRendered.
+    /// Restores cached data immediately if available, then runs a background refresh.
+    /// Falls back to a normal interactive load when no cache exists.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        _cacheKey = BuildCacheKey(ModelIdentity);
+        var cached = _cache.TryLoad(_cacheKey);
+
+        if (cached is not null)
+        {
+            ApplyResponse(cached);
+            HasData = true;
+            var timeStr = cached.LastUpdatedUtc.ToLocalTime().ToString("HH:mm d MMM");
+            LastRefreshedText = $"Last session: {timeStr}";
+            StatusText        = $"{LastRefreshedText} — refreshing…";
+            LogService.Info($"ViewModel: Restored cached snapshot from {timeStr}. Triggering background refresh.");
+            await FetchDataAsync(isRefresh: true, isSilent: true);
+        }
+        else
+        {
+            await FetchDataAsync(isRefresh: false, isSilent: false);
+        }
+
+        if (!_timerStarted && _config.AutoRefreshEnabled && HasData)
+        {
+            var interval = TimeSpan.FromMinutes(_config.RefreshIntervalMinutes);
+            _timer.Start(interval, () => FetchDataAsync(isRefresh: true, isSilent: true));
+            _timerStarted = true;
+            LogService.Info("ViewModel: Auto-refresh timer started.");
+        }
+    }
 
     private async Task FetchDataAsync(bool isRefresh, bool isSilent)
     {
@@ -278,6 +329,7 @@ public class ModelHealthViewModel : BaseViewModel
                 HasData           = true;
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
+                SaveSnapshot();
                 LogService.Info("ViewModel: Silent refresh complete.");
             }
             else
@@ -315,15 +367,8 @@ public class ModelHealthViewModel : BaseViewModel
 
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
+                SaveSnapshot();
                 LogService.Info("ViewModel: Data loaded successfully.");
-
-                if (!_timerStarted && _config.AutoRefreshEnabled)
-                {
-                    var interval = TimeSpan.FromMinutes(_config.RefreshIntervalMinutes);
-                    _timer.Start(interval, () => FetchDataAsync(isRefresh: true, isSilent: true));
-                    _timerStarted = true;
-                    LogService.Info("ViewModel: Auto-refresh timer started.");
-                }
             }
         }
         catch (OperationCanceledException)
@@ -476,6 +521,68 @@ public class ModelHealthViewModel : BaseViewModel
         {
             IsSizeExtracting = false;
         }
+    }
+
+    private void ExecuteShowInModel(object? parameter)
+    {
+        if (parameter is not FailedCheckDto check || !check.CanNavigate)
+            return;
+
+        try
+        {
+            _documentContext.ShowElements(check.ElementIds);
+            LogService.Info($"ViewModel: ShowElements called for '{check.Name}' — {check.ElementIds.Count} elements.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error($"ViewModel: ShowElements failed for '{check.Name}'.", ex);
+            System.Windows.MessageBox.Show(
+                $"Could not navigate to elements: {ex.Message}",
+                "Modena Model Health Checker",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+    }
+
+    private void SaveSnapshot()
+    {
+        if (!HasData || string.IsNullOrEmpty(_cacheKey)) return;
+        var snapshot = new DashboardResponse
+        {
+            ModelKey       = _cacheKey,
+            ModelName      = ModelName,
+            ProjectName    = ProjectName,
+            LastUpdatedUtc = DateTime.UtcNow,
+            Summary        = Summary,
+            FailedChecks   = FailedChecks.ToList(),
+            Metrics        = Metrics.ToList(),
+            Categories     = Categories.ToList(),
+            Families       = Families.ToList(),
+            PassedChecks   = PassedChecks.ToList()
+        };
+        _cache.Save(_cacheKey, snapshot);
+    }
+
+    private static string BuildCacheKey(ModelIdentity identity)
+    {
+        if (identity.IsCloudModel
+            && !string.IsNullOrEmpty(identity.ProjectGuid)
+            && !string.IsNullOrEmpty(identity.ModelGuid))
+            return Slugify($"{identity.ProjectGuid}-{identity.ModelGuid}");
+
+        return Slugify($"{identity.ModelPath}-{identity.DocumentTitle}");
+    }
+
+    private static string Slugify(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in input.ToLowerInvariant())
+            sb.Append(char.IsLetterOrDigit(c) ? c : '-');
+        var result = sb.ToString();
+        while (result.Contains("--"))
+            result = result.Replace("--", "-");
+        return result.Trim('-');
     }
 
     /// <summary>Stops the timer and releases resources. Called when the window closes.</summary>

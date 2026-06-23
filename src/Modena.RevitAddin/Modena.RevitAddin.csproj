@@ -11,6 +11,10 @@
     <WarningsNotAsErrors>MSB3277</WarningsNotAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TrialBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);TRIAL_VERSION</DefineConstants>
+  </PropertyGroup>
+
   <!-- Debug configuration to launch Revit 2026 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <StartAction>Program</StartAction>

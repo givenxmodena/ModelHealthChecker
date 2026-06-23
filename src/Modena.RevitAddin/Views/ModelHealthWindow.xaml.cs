@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
+using Modena.RevitAddin.Services;
 using Modena.RevitAddin.ViewModels;
 
 namespace Modena.RevitAddin.Views;
@@ -10,10 +12,20 @@ namespace Modena.RevitAddin.Views;
 /// </summary>
 public partial class ModelHealthWindow : Window
 {
+#if TRIAL_VERSION
+    private Border? _trialBanner;
+#endif
+
     public ModelHealthWindow(ModelHealthViewModel viewModel)
     {
         InitializeComponent();
         DataContext = viewModel;
+
+#if TRIAL_VERSION
+        AddTrialBanner();
+        viewModel.OnRefreshCompleted = RefreshTrialBanner;
+#endif
+
         Closed += OnClosed;
         // On first render: restore cached data (if any) then background-refresh,
         // or do a full interactive load when no cache exists for this model.
@@ -27,6 +39,51 @@ public partial class ModelHealthWindow : Window
             vm.Cleanup();
         }
     }
+
+#if TRIAL_VERSION
+    /// <summary>
+    /// Adds trial banner to the main window if in trial mode.
+    /// </summary>
+    private void AddTrialBanner()
+    {
+        try
+        {
+            var trialBanner = WatermarkService.CreateTrialBanner();
+            if (trialBanner is null)
+                return;
+
+            if (Content is Grid mainGrid)
+            {
+                if (mainGrid.RowDefinitions.Count == 0)
+                    mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+                mainGrid.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
+
+                foreach (UIElement child in mainGrid.Children)
+                {
+                    var currentRow = Grid.GetRow(child);
+                    Grid.SetRow(child, currentRow + 1);
+                }
+
+                Grid.SetRow(trialBanner, 0);
+                Grid.SetColumnSpan(trialBanner, mainGrid.ColumnDefinitions.Count > 0 ? mainGrid.ColumnDefinitions.Count : 1);
+                mainGrid.Children.Add(trialBanner);
+
+                _trialBanner = trialBanner;
+                LogService.Info("Trial banner added to main window.");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Failed to add trial banner.", ex);
+        }
+    }
+
+    private void RefreshTrialBanner()
+    {
+        Dispatcher.Invoke(() => WatermarkService.RefreshBanner(_trialBanner));
+    }
+#endif
 }
 
 /// <summary>

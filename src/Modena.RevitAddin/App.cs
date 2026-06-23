@@ -32,6 +32,18 @@ public class App : IExternalApplication
             LogService.Configure(config.LoggingLevel, appDataPath, localLogPath);
             LogService.Info("LogService configured. Add-in starting.");
 
+#if TRIAL_VERSION
+            var trialStatus = TrialManager.GetTrialStatus();
+            if (trialStatus.IsExpired)
+            {
+                LogService.Warn("Trial expired. Blocking add-in startup.");
+                TaskDialog.Show("Modena Model Health Checker", trialStatus.GetStatusMessage());
+                return Result.Failed;
+            }
+
+            LogService.Info($"Trial active. DaysRemaining={trialStatus.DaysRemaining}, RefreshesRemaining={trialStatus.RefreshesRemaining}.");
+#endif
+
             // Create or reuse the "Modena" ribbon tab
             const string tabName = "Modena";
             try

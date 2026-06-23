@@ -190,6 +190,7 @@ public class ModelHealthViewModel : BaseViewModel
     public AsyncRelayCommand RefreshCommand         { get; }
     public AsyncRelayCommand LoadFamilySizesCommand { get; }
     public RelayCommand      ShowInModelCommand     { get; }
+    public Action? OnRefreshCompleted { get; set; }
 
     public ModelHealthViewModel(
         ModelIdentity modelIdentity,
@@ -273,6 +274,11 @@ public class ModelHealthViewModel : BaseViewModel
         if (IsLoading) return;
         if (isSilent && _isSilentRefreshing) return;
 
+#if TRIAL_VERSION
+        if (!EnsureTrialAllowsRefresh(isSilent))
+            return;
+#endif
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -330,6 +336,9 @@ public class ModelHealthViewModel : BaseViewModel
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
                 SaveSnapshot();
+#if TRIAL_VERSION
+                RecordSuccessfulTrialRefresh(isSilent: true);
+#endif
                 LogService.Info("ViewModel: Silent refresh complete.");
             }
             else
@@ -368,6 +377,9 @@ public class ModelHealthViewModel : BaseViewModel
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
                 SaveSnapshot();
+#if TRIAL_VERSION
+                RecordSuccessfulTrialRefresh(isSilent: false);
+#endif
                 LogService.Info("ViewModel: Data loaded successfully.");
             }
         }
@@ -413,6 +425,45 @@ public class ModelHealthViewModel : BaseViewModel
             }
         }
     }
+
+#if TRIAL_VERSION
+    private bool EnsureTrialAllowsRefresh(bool isSilent)
+    {
+        var trialStatus = TrialManager.GetTrialStatus();
+        if (trialStatus.IsTrialActive)
+            return true;
+
+        LogService.Warn($"ViewModel: Trial inactive. {(isSilent ? "Silent refresh" : "Interactive refresh")} blocked.");
+
+        if (isSilent)
+        {
+            _timer.Stop();
+            _timerStarted = false;
+            IsBackgroundRefreshing = false;
+        }
+        else
+        {
+            ErrorMessage = trialStatus.GetStatusMessage();
+            StatusText = "Trial expired";
+            System.Windows.MessageBox.Show(
+                trialStatus.GetStatusMessage(),
+                "Modena Model Health Checker",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+
+        return false;
+    }
+
+    private void RecordSuccessfulTrialRefresh(bool isSilent)
+    {
+        TrialManager.RecordRefresh();
+        var trialStatus = TrialManager.GetTrialStatus();
+        OnRefreshCompleted?.Invoke();
+        LogService.Info(
+            $"ViewModel: Trial refresh counted. Mode={(isSilent ? "Silent" : "Interactive")}, RefreshesRemaining={trialStatus.RefreshesRemaining}.");
+    }
+#endif
 
     /// <summary>Applies fast-phase results (no families). Clears the Families collection.</summary>
     private void ApplyFastResponse(DashboardResponse response)

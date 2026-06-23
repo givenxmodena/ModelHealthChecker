@@ -14,6 +14,10 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TrialBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);TRIAL_VERSION</DefineConstants>
+  </PropertyGroup>
+
   <!-- Debug configuration to launch Revit 2024 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <StartAction>Program</StartAction>

@@ -21,6 +21,16 @@ public class ModelHealthCheckerCommand : IExternalCommand
         {
             LogService.Info("ModelHealthCheckerCommand: Execute started.");
 
+#if TRIAL_VERSION
+            var trialStatus = TrialManager.GetTrialStatus();
+            if (!trialStatus.IsTrialActive)
+            {
+                LogService.Warn("ModelHealthCheckerCommand: Trial inactive. Command cancelled.");
+                WatermarkService.ShowTrialStatusDialog();
+                return Result.Cancelled;
+            }
+#endif
+
             var uiApp = commandData.Application;
             var doc = uiApp.ActiveUIDocument?.Document;
 

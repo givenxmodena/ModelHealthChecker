@@ -20,11 +20,21 @@ public class HealthCheckRule
 /// <summary>Per-check rule set loaded from modena-config.json.</summary>
 public class HealthChecksConfig
 {
+    public HealthCheckRule RevitWarnings        { get; set; } = new() { HighThreshold = 200,  MediumThreshold = 50   };
     public HealthCheckRule MirroredElements     { get; set; } = new() { HighThreshold = 50,   MediumThreshold = 10   };
     public HealthCheckRule UnplacedRooms        { get; set; } = new() { HighThreshold = 10,   MediumThreshold = 1    };
     public HealthCheckRule DuplicateTypeNames   { get; set; } = new() { HighThreshold = 20,   MediumThreshold = 5    };
     public HealthCheckRule DetailLineItems      { get; set; } = new() { HighThreshold = 5000, MediumThreshold = 1000 };
     public HealthCheckRule ImportedCadInstances { get; set; } = new() { HighThreshold = 10,   MediumThreshold = 3    };
+    public HealthCheckRule LinkedCadInstances   { get; set; } = new() { HighThreshold = 20,   MediumThreshold = 5    };
+    public HealthCheckRule LinkedCadNotPinned   { get; set; } = new() { HighThreshold = 5,    MediumThreshold = 0    };
+    public HealthCheckRule LinkedCadAllViews    { get; set; } = new() { HighThreshold = 5,    MediumThreshold = 0    };
+    public HealthCheckRule LinkedRevitNotPinned { get; set; } = new() { HighThreshold = 5,    MediumThreshold = 0    };
+    public HealthCheckRule InPlaceFamilies      { get; set; } = new() { HighThreshold = 10,   MediumThreshold = 0    };
+    public HealthCheckRule RasterImages         { get; set; } = new() { HighThreshold = 20,   MediumThreshold = 5    };
+    public HealthCheckRule UnusedViews          { get; set; } = new() { HighThreshold = 100,  MediumThreshold = 25   };
+    public HealthCheckRule ViewsWithoutTemplates { get; set; } = new() { HighThreshold = 100, MediumThreshold = 25   };
+    public HealthCheckRule DuplicateInstances   { get; set; } = new() { HighThreshold = 50,   MediumThreshold = 10   };
 }
 
 /// <summary>
@@ -51,6 +61,14 @@ public class PluginConfig
     public string ApsClientId { get; set; } = string.Empty;
     public string ApsClientSecret { get; set; } = string.Empty;
     public string ApsBaseUrl { get; set; } = "https://developer.api.autodesk.com";
+
+    // Authentication & analytics
+    /// <summary>When true, the health check command requires users to sign in with Autodesk before running.</summary>
+    public bool RequireAuthentication { get; set; } = true;
+    /// <summary>Allowed email domains (e.g. ["modena-aec.com"]). Empty array = any domain accepted.</summary>
+    public string[] AllowedDomains { get; set; } = Array.Empty<string>();
+    /// <summary>PostHog project API key. Leave empty to disable analytics.</summary>
+    public string PostHogApiKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Loads configuration from the specified JSON file path.
@@ -128,11 +146,21 @@ public class PluginConfig
         }
 
         HealthChecks ??= new HealthChecksConfig();
+        ValidateRule(nameof(HealthChecks.RevitWarnings),        HealthChecks.RevitWarnings,        200,  50);
         ValidateRule(nameof(HealthChecks.MirroredElements),     HealthChecks.MirroredElements,     50,   10);
         ValidateRule(nameof(HealthChecks.UnplacedRooms),        HealthChecks.UnplacedRooms,        10,    1);
         ValidateRule(nameof(HealthChecks.DuplicateTypeNames),   HealthChecks.DuplicateTypeNames,   20,    5);
         ValidateRule(nameof(HealthChecks.DetailLineItems),      HealthChecks.DetailLineItems,      5000, 1000);
         ValidateRule(nameof(HealthChecks.ImportedCadInstances), HealthChecks.ImportedCadInstances, 10,    3);
+        ValidateRule(nameof(HealthChecks.LinkedCadInstances),   HealthChecks.LinkedCadInstances,   20,   5);
+        ValidateRule(nameof(HealthChecks.LinkedCadNotPinned),   HealthChecks.LinkedCadNotPinned,   5,    0);
+        ValidateRule(nameof(HealthChecks.LinkedCadAllViews),    HealthChecks.LinkedCadAllViews,    5,    0);
+        ValidateRule(nameof(HealthChecks.LinkedRevitNotPinned), HealthChecks.LinkedRevitNotPinned, 5,    0);
+        ValidateRule(nameof(HealthChecks.InPlaceFamilies),      HealthChecks.InPlaceFamilies,      10,   0);
+        ValidateRule(nameof(HealthChecks.RasterImages),         HealthChecks.RasterImages,         20,   5);
+        ValidateRule(nameof(HealthChecks.UnusedViews),          HealthChecks.UnusedViews,          100,  25);
+        ValidateRule(nameof(HealthChecks.ViewsWithoutTemplates), HealthChecks.ViewsWithoutTemplates, 100, 25);
+        ValidateRule(nameof(HealthChecks.DuplicateInstances),   HealthChecks.DuplicateInstances,   50,   10);
     }
 
     private void ValidateRule(string name, HealthCheckRule rule, int defaultHigh, int defaultMedium)

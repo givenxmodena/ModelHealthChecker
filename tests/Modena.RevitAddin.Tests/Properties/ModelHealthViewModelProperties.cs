@@ -25,9 +25,10 @@ public class ModelHealthViewModelProperties
             PluginConfig? config = null,
             Exception? extractException = null)
     {
+        var documentTitle = $"TestDoc-{Guid.NewGuid():N}";
         var identity = new ModelIdentity
         {
-            DocumentTitle = "TestDoc",
+            DocumentTitle = documentTitle,
             ModelPath = @"C:\test\model.rvt",
             RevitVersion = "2024",
             IsCloudModel = false,
@@ -38,19 +39,22 @@ public class ModelHealthViewModelProperties
         if (extractException is not null)
         {
             mockExtractor
-                .Setup(e => e.ExtractAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
+                .Setup(e => e.ExtractFastAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(extractException);
         }
         else
         {
             mockExtractor
-                .Setup(e => e.ExtractAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
+                .Setup(e => e.ExtractFastAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(extractResult!);
+            mockExtractor
+                .Setup(e => e.ExtractFamilySizesAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(extractResult?.Families ?? new List<FamilyDto>());
         }
 
         var mockDocContext = new Mock<IRevitDocumentContext>();
         mockDocContext.Setup(d => d.HasActiveDocument).Returns(true);
-        mockDocContext.Setup(d => d.DocumentTitle).Returns("TestDoc");
+        mockDocContext.Setup(d => d.DocumentTitle).Returns(documentTitle);
 
         var cfg = config ?? new PluginConfig { AutoRefreshEnabled = true, RefreshIntervalMinutes = 5 };
         var timer = new RefreshTimerService();
@@ -104,9 +108,12 @@ public class ModelHealthViewModelProperties
             && vm.ModelName == response.ModelName
             && vm.ProjectName == response.ProjectName
             && vm.FailedChecks.Count == response.FailedChecks.Count
-            && vm.Metrics.Count == response.Metrics.Count
+            && vm.Metrics.Count == 3
+            && vm.Metrics.Any(m => m.Name == "Families" && m.Count == response.Families.Count)
             && vm.Categories.Count == response.Categories.Count
             && vm.Families.Count == response.Families.Count
+            && vm.Warnings.Count == response.Warnings.Count
+            && vm.FilteredFailedChecks.Count == response.FailedChecks.Count
             && vm.PassedChecks.Count == response.PassedChecks.Count;
 
         vm.Cleanup();
@@ -156,12 +163,15 @@ public class ModelHealthViewModelProperties
 
         var mockExtractor = new Mock<IModelHealthExtractor>();
         mockExtractor
-            .Setup(e => e.ExtractAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
+            .Setup(e => e.ExtractFastAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 Interlocked.Increment(ref callCount);
                 return tcs.Task;
             });
+        mockExtractor
+            .Setup(e => e.ExtractFamilySizesAsync(It.IsAny<IRevitDocumentContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response.Families);
 
         var mockDocContext = new Mock<IRevitDocumentContext>();
         mockDocContext.Setup(d => d.HasActiveDocument).Returns(true);
@@ -206,7 +216,7 @@ public class ModelHealthViewModelProperties
 
         RunOnDispatcherAsync(async () =>
         {
-            await vm.LoadCommand.ExecuteAsync();
+            await vm.InitializeAsync();
         });
 
         var pass = vm.IsTimerRunning;
@@ -226,7 +236,7 @@ public class ModelHealthViewModelProperties
 
         RunOnDispatcherAsync(async () =>
         {
-            await vm.LoadCommand.ExecuteAsync();
+            await vm.InitializeAsync();
         });
 
         // Timer should be running after successful load

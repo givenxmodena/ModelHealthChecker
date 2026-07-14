@@ -11,5 +11,6 @@ public class DashboardResponse
     public List<MetricDto> Metrics { get; set; } = new();
     public List<CategoryDto> Categories { get; set; } = new();
     public List<FamilyDto> Families { get; set; } = new();
+    public List<WarningDto> Warnings { get; set; } = new();
     public List<string> PassedChecks { get; set; } = new();
 }

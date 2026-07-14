@@ -37,7 +37,7 @@ public class ModelHealthCheckerCommand : IExternalCommand
             if (doc is null)
             {
                 LogService.Warn("ModelHealthCheckerCommand: No active document.");
-                TaskDialog.Show("Modena Model Health Checker",
+                TaskDialog.Show("Pulse",
                     "No active document found. Please open a Revit model first.");
                 return Result.Failed;
             }
@@ -49,12 +49,51 @@ public class ModelHealthCheckerCommand : IExternalCommand
             if (identity is null)
             {
                 LogService.Warn("ModelHealthCheckerCommand: Could not build model identity.");
-                TaskDialog.Show("Modena Model Health Checker",
+                TaskDialog.Show("Pulse",
                     "No active saved document found. Please open and save a Revit model first.");
                 return Result.Failed;
             }
 
-            var config    = PluginConfig.Load();
+            var config = PluginConfig.Load();
+
+            // Optional authentication gate
+            if (config.RequireAuthentication)
+            {
+                var (clientId, clientSecret) = ApsCredentialsProvider.GetCredentials();
+                if (string.IsNullOrWhiteSpace(clientId))
+                {
+                    TaskDialog.Show("Pulse",
+                        "Authentication is required but APS credentials are not configured.\n" +
+                        "Contact your administrator.");
+                    return Result.Cancelled;
+                }
+
+                var auth = new AuthService(clientId!, clientSecret!);
+                try
+                {
+                    var email = auth.AuthenticateUserAsync(config.AllowedDomains)
+                                   .GetAwaiter().GetResult();
+                    if (email is null)
+                    {
+                        LogService.Info("ModelHealthCheckerCommand: User cancelled sign-in.");
+                        return Result.Cancelled;
+                    }
+                    LogService.Info($"ModelHealthCheckerCommand: Authenticated as {email}");
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    TaskDialog.Show("Pulse — Access Denied", ex.Message);
+                    return Result.Cancelled;
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error("ModelHealthCheckerCommand: Authentication failed.", ex);
+                    TaskDialog.Show("Pulse",
+                        $"Sign-in failed: {ex.Message}");
+                    return Result.Failed;
+                }
+            }
+
             var extractor = new RevitHealthExtractor(doc, config);
 
             var viewModel = new ModelHealthViewModel(identity, extractor, documentContext, config);
@@ -68,7 +107,7 @@ public class ModelHealthCheckerCommand : IExternalCommand
         catch (Exception ex)
         {
             LogService.Error("ModelHealthCheckerCommand: Unhandled exception.", ex);
-            TaskDialog.Show("Modena Model Health Checker",
+            TaskDialog.Show("Pulse",
                 $"An unexpected error occurred: {ex.Message}");
             message = ex.Message;
             return Result.Failed;

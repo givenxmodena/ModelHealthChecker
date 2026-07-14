@@ -30,7 +30,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
         var categories = ExtractCategoryDistribution();
         var warnings   = ExtractWarnings();
         var families   = ExtractFamilySizesCore(ct);
-        var checks     = RunHealthChecks();
+        var checks     = RunHealthChecks(warnings);
 
         var response = BuildResponse(context, categories, warnings, families, checks);
         LogService.Info($"RevitHealthExtractor: Full extraction complete. PassRate={response.Summary?.PassRate}%");
@@ -48,7 +48,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
         var categories = ExtractCategoryDistribution();
         var warnings   = ExtractWarnings();
-        var checks     = RunHealthChecks();
+        var checks     = RunHealthChecks(warnings);
 
         var response = BuildResponse(context, categories, warnings, families: new List<FamilyDto>(), checks);
         LogService.Info($"RevitHealthExtractor: Fast extraction complete. PassRate={response.Summary?.PassRate}%");
@@ -134,10 +134,11 @@ public class RevitHealthExtractor : IModelHealthExtractor
     private DashboardResponse BuildResponse(
         IRevitDocumentContext context,
         List<CategoryDto> categories,
-        int warnings,
+        List<WarningDto> warnings,
         List<FamilyDto> families,
         List<FailedCheckDto> healthChecks)
     {
+        var warningCount = warnings.Sum(w => w.Count);
         var totalChecks   = healthChecks.Count;
         var failedChecks  = healthChecks.Where(c => c.Count > 0).ToList();
         var passedChecks  = healthChecks.Where(c => c.Count == 0).Select(c => c.Name).ToList();
@@ -159,7 +160,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 PassedChecks     = passedCount,
                 FailedChecks     = failedCount,
                 ReportOnlyChecks = 0,
-                Warnings         = warnings,
+                Warnings         = warningCount,
                 FileSizeMb       = 0,
                 ModelElements    = totalElements
             },
@@ -167,11 +168,12 @@ public class RevitHealthExtractor : IModelHealthExtractor
             Metrics = new List<MetricDto>
             {
                 new() { Name = "Total Elements", Count = totalElements },
-                new() { Name = "Warnings",       Count = warnings      },
+                new() { Name = "Warnings",       Count = warningCount  },
                 new() { Name = "Families",       Count = families.Count }
             },
             Categories   = categories,
             Families     = families,
+            Warnings     = warnings,
             PassedChecks = passedChecks
         };
     }
@@ -195,16 +197,51 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private int ExtractWarnings()
+    private List<WarningDto> ExtractWarnings()
     {
         try
         {
-            return _doc.GetWarnings()?.Count ?? 0;
+            var warnings = _doc.GetWarnings();
+            if (warnings is null || warnings.Count == 0)
+                return new List<WarningDto>();
+
+            return warnings
+                .Select(w =>
+                {
+                    var elementIds = w.GetFailingElements()
+                        .Concat(w.GetAdditionalElements())
+                        .Select(GetId)
+                        .Distinct()
+                        .ToList();
+
+                    return new
+                    {
+                        Description = string.IsNullOrWhiteSpace(w.GetDescriptionText())
+                            ? "Revit warning"
+                            : w.GetDescriptionText(),
+                        ElementIds = elementIds
+                    };
+                })
+                .GroupBy(w => w.Description)
+                .Select(g =>
+                {
+                    var ids = g.SelectMany(w => w.ElementIds).Distinct().ToList();
+                    return new WarningDto
+                    {
+                        Description = g.Key,
+                        Count = g.Count(),
+                        ElementCount = ids.Count,
+                        ElementIds = ids
+                    };
+                })
+                .OrderByDescending(w => w.Count)
+                .ThenBy(w => w.Description)
+                .ToList();
         }
         catch (Exception ex)
         {
             LogService.Error("Failed to extract warnings.", ex);
-            return 0;
+            return new List<WarningDto>();
         }
     }
 
@@ -247,18 +284,66 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
     }
 
-    private List<FailedCheckDto> RunHealthChecks()
+    private List<FailedCheckDto> RunHealthChecks(List<WarningDto> warnings)
     {
         var rules   = _config.HealthChecks;
         var results = new List<FailedCheckDto>();
 
+        if (rules.RevitWarnings.Enabled)        results.Add(CheckRevitWarnings(rules.RevitWarnings, warnings));
         if (rules.MirroredElements.Enabled)     results.Add(CheckMirroredElements(rules.MirroredElements));
         if (rules.UnplacedRooms.Enabled)        results.Add(CheckUnplacedRooms(rules.UnplacedRooms));
         if (rules.DuplicateTypeNames.Enabled)   results.Add(CheckDuplicateTypeNames(rules.DuplicateTypeNames));
         if (rules.DetailLineItems.Enabled)      results.Add(CheckDetailLineItems(rules.DetailLineItems));
         if (rules.ImportedCadInstances.Enabled) results.Add(CheckImportedCadInstances(rules.ImportedCadInstances));
+        if (rules.LinkedCadInstances.Enabled)   results.Add(CheckLinkedCadInstances(rules.LinkedCadInstances));
+        if (rules.LinkedCadNotPinned.Enabled)   results.Add(CheckLinkedCadNotPinned(rules.LinkedCadNotPinned));
+        if (rules.LinkedCadAllViews.Enabled)    results.Add(CheckLinkedCadAllViews(rules.LinkedCadAllViews));
+        if (rules.LinkedRevitNotPinned.Enabled) results.Add(CheckLinkedRevitNotPinned(rules.LinkedRevitNotPinned));
+        if (rules.InPlaceFamilies.Enabled)      results.Add(CheckInPlaceFamilies(rules.InPlaceFamilies));
+        if (rules.RasterImages.Enabled)         results.Add(CheckRasterImages(rules.RasterImages));
+        if (rules.UnusedViews.Enabled)          results.Add(CheckUnusedViews(rules.UnusedViews));
+        if (rules.ViewsWithoutTemplates.Enabled) results.Add(CheckViewsWithoutTemplates(rules.ViewsWithoutTemplates));
+        if (rules.DuplicateInstances.Enabled)   results.Add(CheckDuplicateInstances(rules.DuplicateInstances));
 
         return results;
+    }
+
+    private static FailedCheckDto BuildCheck(
+        string name,
+        int count,
+        List<long> elementIds,
+        string category,
+        string defaultDiscipline,
+        HealthCheckRule rule,
+        string description,
+        string recommendation)
+    {
+        return new FailedCheckDto
+        {
+            Name = name,
+            Count = count,
+            ElementIds = elementIds,
+            Category = category,
+            Priority = rule.ResolvePriority(count),
+            Discipline = string.IsNullOrEmpty(rule.Discipline) ? defaultDiscipline : rule.Discipline!,
+            Description = description,
+            Recommendation = recommendation
+        };
+    }
+
+    private FailedCheckDto CheckRevitWarnings(HealthCheckRule rule, List<WarningDto> warnings)
+    {
+        var ids = warnings.SelectMany(w => w.ElementIds).Distinct().ToList();
+        var count = warnings.Sum(w => w.Count);
+        return BuildCheck(
+            "Revit Warnings",
+            count,
+            ids,
+            "Model Quality",
+            "General",
+            rule,
+            "Revit warnings indicate model conditions that can affect stability, coordination, documentation, or performance.",
+            "Review warning groups by type, resolve repeated warnings first, and prioritise warnings affecting many elements.");
     }
 
     private FailedCheckDto CheckMirroredElements(HealthCheckRule rule)
@@ -273,20 +358,20 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 .Select(fi => GetId(fi.Id))
                 .ToList();
 
-            return new FailedCheckDto
-            {
-                Name       = "Mirrored Elements",
-                Count      = ids.Count,
-                ElementIds = ids,
-                Category   = "Model Quality",
-                Priority   = rule.ResolvePriority(ids.Count),
-                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
-            };
+            return BuildCheck(
+                "Mirrored Elements",
+                ids.Count,
+                ids,
+                "Model Quality",
+                "General",
+                rule,
+                "Mirrored elements can indicate modelling shortcuts that may affect hosted geometry, schedules, and coordination.",
+                "Review mirrored instances and replace with correctly oriented families where project standards require it.");
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Mirrored Elements.", ex);
-            return new FailedCheckDto { Name = "Mirrored Elements", Count = 0, Category = "Model Quality", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
+            return BuildCheck("Mirrored Elements", 0, new List<long>(), "Model Quality", "General", rule, "Mirrored elements can indicate modelling shortcuts.", "Review mirrored instances.");
         }
     }
 
@@ -302,20 +387,20 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 .Select(r => GetId(r.Id))
                 .ToList();
 
-            return new FailedCheckDto
-            {
-                Name       = "Unplaced Rooms",
-                Count      = ids.Count,
-                ElementIds = ids,
-                Category   = "Spatial",
-                Priority   = rule.ResolvePriority(ids.Count),
-                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "Architecture" : rule.Discipline!
-            };
+            return BuildCheck(
+                "Unplaced Rooms",
+                ids.Count,
+                ids,
+                "Spatial",
+                "Architecture",
+                rule,
+                "Unplaced or zero-area rooms can create incorrect area schedules and downstream coordination issues.",
+                "Delete unused rooms or place/enclose rooms correctly before issuing schedules.");
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Unplaced Rooms.", ex);
-            return new FailedCheckDto { Name = "Unplaced Rooms", Count = 0, Category = "Spatial", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "Architecture" : rule.Discipline! };
+            return BuildCheck("Unplaced Rooms", 0, new List<long>(), "Spatial", "Architecture", rule, "Unplaced rooms affect area data.", "Delete unused rooms or place/enclose them correctly.");
         }
     }
 
@@ -336,20 +421,20 @@ public class RevitHealthExtractor : IModelHealthExtractor
             var ids   = duplicateNames.SelectMany(g => g.Skip(1)).Select(e => GetId(e.Id)).ToList();
             var count = duplicateNames.Sum(g => g.Count() - 1);
 
-            return new FailedCheckDto
-            {
-                Name       = "Duplicate Type Names",
-                Count      = count,
-                ElementIds = ids,
-                Category   = "Naming",
-                Priority   = rule.ResolvePriority(count),
-                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
-            };
+            return BuildCheck(
+                "Duplicate Type Names",
+                count,
+                ids,
+                "Naming",
+                "General",
+                rule,
+                "Duplicate type names make schedules, QA reviews, and standards enforcement harder to trust.",
+                "Rename duplicate types so each type name is unique and meaningful.");
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Duplicate Type Names.", ex);
-            return new FailedCheckDto { Name = "Duplicate Type Names", Count = 0, Category = "Naming", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
+            return BuildCheck("Duplicate Type Names", 0, new List<long>(), "Naming", "General", rule, "Duplicate type names affect standards review.", "Rename duplicate types.");
         }
     }
 
@@ -363,20 +448,20 @@ public class RevitHealthExtractor : IModelHealthExtractor
                 .Select(e => GetId(e.Id))
                 .ToList();
 
-            return new FailedCheckDto
-            {
-                Name       = "Detail Line Items",
-                Count      = ids.Count,
-                ElementIds = ids,
-                Category   = "Performance",
-                Priority   = rule.ResolvePriority(ids.Count),
-                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
-            };
+            return BuildCheck(
+                "Detail Line Items",
+                ids.Count,
+                ids,
+                "Performance",
+                "General",
+                rule,
+                "Large numbers of detail lines can increase documentation maintenance effort and slow view performance.",
+                "Review detail-line heavy views and replace repeated drafting with modelled or reusable detail components where practical.");
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Detail Line Items.", ex);
-            return new FailedCheckDto { Name = "Detail Line Items", Count = 0, Category = "Performance", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
+            return BuildCheck("Detail Line Items", 0, new List<long>(), "Performance", "General", rule, "Detail lines can indicate heavy drafting.", "Review detail-line heavy views.");
         }
     }
 
@@ -387,24 +472,332 @@ public class RevitHealthExtractor : IModelHealthExtractor
             var ids = new FilteredElementCollector(_doc)
                 .OfClass(typeof(ImportInstance))
                 .WhereElementIsNotElementType()
+                .Cast<ImportInstance>()
+                .Where(i => !i.IsLinked)
                 .Select(e => GetId(e.Id))
                 .ToList();
 
-            return new FailedCheckDto
-            {
-                Name       = "Imported CAD Instances",
-                Count      = ids.Count,
-                ElementIds = ids,
-                Category   = "Performance",
-                Priority   = rule.ResolvePriority(ids.Count),
-                Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline!
-            };
+            return BuildCheck(
+                "Imported CAD Files",
+                ids.Count,
+                ids,
+                "External Files",
+                "General",
+                rule,
+                "Imported CAD is embedded in the Revit model and can bloat files, contaminate line styles, and slow views.",
+                "Remove imported CAD and link CAD files only where needed, preferably current-view only.");
         }
         catch (Exception ex)
         {
             LogService.Error("Health check failed: Imported CAD Instances.", ex);
-            return new FailedCheckDto { Name = "Imported CAD Instances", Count = 0, Category = "Performance", Priority = "LOW", Discipline = string.IsNullOrEmpty(rule.Discipline) ? "General" : rule.Discipline! };
+            return BuildCheck("Imported CAD Files", 0, new List<long>(), "External Files", "General", rule, "Imported CAD can bloat models.", "Remove imported CAD and use links where necessary.");
         }
+    }
+
+    private FailedCheckDto CheckLinkedCadInstances(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(ImportInstance))
+                .WhereElementIsNotElementType()
+                .Cast<ImportInstance>()
+                .Where(i => i.IsLinked)
+                .Select(i => GetId(i.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Linked CAD Files",
+                ids.Count,
+                ids,
+                "External Files",
+                "General",
+                rule,
+                "Linked CAD files are preferable to imported CAD, but still need review because they can affect performance and view clarity.",
+                "Keep only necessary CAD links, place them current-view only where possible, and remove stale references.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Linked CAD Files.", ex);
+            return BuildCheck("Linked CAD Files", 0, new List<long>(), "External Files", "General", rule, "Linked CAD files should be reviewed.", "Remove stale CAD links.");
+        }
+    }
+
+    private FailedCheckDto CheckLinkedCadNotPinned(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(ImportInstance))
+                .WhereElementIsNotElementType()
+                .Cast<ImportInstance>()
+                .Where(i => i.IsLinked && !i.Pinned)
+                .Select(i => GetId(i.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Linked CAD Not Pinned",
+                ids.Count,
+                ids,
+                "External Files",
+                "General",
+                rule,
+                "Unpinned CAD links can be moved accidentally, breaking coordination and documentation alignment.",
+                "Pin linked CAD files after placing them in the correct location.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Linked CAD Not Pinned.", ex);
+            return BuildCheck("Linked CAD Not Pinned", 0, new List<long>(), "External Files", "General", rule, "Unpinned CAD links can move accidentally.", "Pin linked CAD files.");
+        }
+    }
+
+    private FailedCheckDto CheckLinkedCadAllViews(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(ImportInstance))
+                .WhereElementIsNotElementType()
+                .Cast<ImportInstance>()
+                .Where(i => i.IsLinked && !i.ViewSpecific)
+                .Select(i => GetId(i.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Linked CAD Visible In All Views",
+                ids.Count,
+                ids,
+                "External Files",
+                "General",
+                rule,
+                "CAD links visible in all views can contaminate unrelated views and slow view regeneration.",
+                "Reload CAD as current-view only when the reference is only needed for a specific drawing view.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Linked CAD Visible In All Views.", ex);
+            return BuildCheck("Linked CAD Visible In All Views", 0, new List<long>(), "External Files", "General", rule, "All-view CAD links can slow views.", "Prefer current-view only CAD links.");
+        }
+    }
+
+    private FailedCheckDto CheckLinkedRevitNotPinned(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(RevitLinkInstance))
+                .WhereElementIsNotElementType()
+                .Cast<RevitLinkInstance>()
+                .Where(i => !i.Pinned)
+                .Select(i => GetId(i.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Linked Revit Files Not Pinned",
+                ids.Count,
+                ids,
+                "External Files",
+                "General",
+                rule,
+                "Unpinned Revit links can be moved accidentally, causing coordination overlays and references to drift.",
+                "Pin linked Revit instances after they are coordinated.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Linked Revit Files Not Pinned.", ex);
+            return BuildCheck("Linked Revit Files Not Pinned", 0, new List<long>(), "External Files", "General", rule, "Unpinned Revit links can move accidentally.", "Pin linked Revit instances.");
+        }
+    }
+
+    private FailedCheckDto CheckInPlaceFamilies(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(FamilyInstance))
+                .WhereElementIsNotElementType()
+                .Cast<FamilyInstance>()
+                .Where(fi => fi.Symbol?.Family?.IsInPlace == true)
+                .Select(fi => GetId(fi.Id))
+                .ToList();
+
+            return BuildCheck(
+                "In-Place Families",
+                ids.Count,
+                ids,
+                "Performance",
+                "General",
+                rule,
+                "In-place families are hard to reuse, can inflate model size, and often perform worse than loadable families.",
+                "Replace repeated in-place families with loadable families where practical.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: In-Place Families.", ex);
+            return BuildCheck("In-Place Families", 0, new List<long>(), "Performance", "General", rule, "In-place families can affect model health.", "Replace repeated in-place families.");
+        }
+    }
+
+    private FailedCheckDto CheckRasterImages(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_RasterImages)
+                .WhereElementIsNotElementType()
+                .Select(e => GetId(e.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Raster Images",
+                ids.Count,
+                ids,
+                "Performance",
+                "General",
+                rule,
+                "Embedded raster images can increase file size and slow view performance.",
+                "Remove unused images and link/reference image content only where needed.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Raster Images.", ex);
+            return BuildCheck("Raster Images", 0, new List<long>(), "Performance", "General", rule, "Raster images can bloat models.", "Remove unused images.");
+        }
+    }
+
+    private FailedCheckDto CheckUnusedViews(HealthCheckRule rule)
+    {
+        try
+        {
+            var placedViewIds = new HashSet<long>(
+                new FilteredElementCollector(_doc)
+                    .OfClass(typeof(Viewport))
+                    .Cast<Viewport>()
+                    .Select(vp => GetId(vp.ViewId)));
+
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .Where(IsReviewableView)
+                .Where(v => !placedViewIds.Contains(GetId(v.Id)))
+                .Select(v => GetId(v.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Unused Views",
+                ids.Count,
+                ids,
+                "Documentation",
+                "General",
+                rule,
+                "Unused views accumulate over a project and can make models harder to manage.",
+                "Delete stale working views or move intentionally retained views into a managed browser organisation.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Unused Views.", ex);
+            return BuildCheck("Unused Views", 0, new List<long>(), "Documentation", "General", rule, "Unused views add model clutter.", "Delete stale views.");
+        }
+    }
+
+    private FailedCheckDto CheckViewsWithoutTemplates(HealthCheckRule rule)
+    {
+        try
+        {
+            var ids = new FilteredElementCollector(_doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .Where(IsReviewableView)
+                .Where(v => v.ViewTemplateId == ElementId.InvalidElementId)
+                .Select(v => GetId(v.Id))
+                .ToList();
+
+            return BuildCheck(
+                "Views Without Templates",
+                ids.Count,
+                ids,
+                "Documentation",
+                "General",
+                rule,
+                "Views without templates are more likely to have inconsistent visibility, graphics, and documentation settings.",
+                "Apply project view templates to production views and keep unmanaged working views clearly separated.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Views Without Templates.", ex);
+            return BuildCheck("Views Without Templates", 0, new List<long>(), "Documentation", "General", rule, "Views without templates can be inconsistent.", "Apply project view templates.");
+        }
+    }
+
+    private FailedCheckDto CheckDuplicateInstances(HealthCheckRule rule)
+    {
+        try
+        {
+            var duplicateGroups = new FilteredElementCollector(_doc)
+                .OfClass(typeof(FamilyInstance))
+                .WhereElementIsNotElementType()
+                .Cast<FamilyInstance>()
+                .Where(fi => fi.DesignOption is null)
+                .Select(fi => new { Instance = fi, Key = GetDuplicateInstanceKey(fi) })
+                .Where(x => x.Key is not null)
+                .GroupBy(x => x.Key!)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            var ids = duplicateGroups
+                .SelectMany(g => g.Skip(1).Select(x => GetId(x.Instance.Id)))
+                .ToList();
+
+            return BuildCheck(
+                "Duplicate Instances",
+                ids.Count,
+                ids,
+                "Model Quality",
+                "General",
+                rule,
+                "Duplicate instances in the same location can inflate quantities and cause graphical overlap.",
+                "Review duplicate elements and delete unintended stacked instances.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("Health check failed: Duplicate Instances.", ex);
+            return BuildCheck("Duplicate Instances", 0, new List<long>(), "Model Quality", "General", rule, "Duplicate instances can affect quantities.", "Delete unintended duplicates.");
+        }
+    }
+
+    private static bool IsReviewableView(View view)
+    {
+        if (view.IsTemplate)
+            return false;
+
+        return view.ViewType is not ViewType.DrawingSheet
+            and not ViewType.Schedule
+            and not ViewType.Legend
+            and not ViewType.ProjectBrowser
+            and not ViewType.SystemBrowser
+            and not ViewType.Internal;
+    }
+
+    private static string? GetDuplicateInstanceKey(FamilyInstance instance)
+    {
+        var typeId = GetId(instance.GetTypeId());
+
+        return instance.Location switch
+        {
+            LocationPoint point => $"{typeId}|P|{FormatPoint(point.Point)}",
+            LocationCurve curve => $"{typeId}|C|{FormatPoint(curve.Curve.GetEndPoint(0))}|{FormatPoint(curve.Curve.GetEndPoint(1))}",
+            _ => null
+        };
+    }
+
+    private static string FormatPoint(XYZ point)
+    {
+        const double toleranceFeet = 1.0 / 304.8; // 1 mm in Revit internal feet.
+        var x = Math.Round(point.X / toleranceFeet);
+        var y = Math.Round(point.Y / toleranceFeet);
+        var z = Math.Round(point.Z / toleranceFeet);
+        return $"{x}|{y}|{z}";
     }
 
     private static long GetId(ElementId id)

@@ -30,6 +30,9 @@ public class ModelHealthViewModel : BaseViewModel
     private bool _isSizeExtracting;
     private bool _hasSizeData;
     private string _sizeProgressText = string.Empty;
+    private string _selectedPriorityFilter = "All";
+    private string _selectedCategoryFilter = "All";
+    private string _selectedDisciplineFilter = "All";
 
     // Backing fields
     private string _modelName = string.Empty;
@@ -143,7 +146,44 @@ public class ModelHealthViewModel : BaseViewModel
     public ObservableCollection<CategoryDto>    Categories     { get; } = new();
     public ObservableCollection<FamilyDto>      Families       { get; } = new();
     public ObservableCollection<FamilyDto>      FamiliesBySize { get; } = new();
+    public ObservableCollection<WarningDto>     Warnings       { get; } = new();
     public ObservableCollection<string>         PassedChecks   { get; } = new();
+    public ObservableCollection<FailedCheckDto> FilteredFailedChecks { get; } = new();
+    public ObservableCollection<string>         PriorityFilters       { get; } = new() { "All", "HIGH", "MEDIUM", "LOW" };
+    public ObservableCollection<string>         CategoryFilters       { get; } = new() { "All" };
+    public ObservableCollection<string>         DisciplineFilters     { get; } = new() { "All" };
+
+    public bool HasWarnings => Warnings.Count > 0;
+
+    public string SelectedPriorityFilter
+    {
+        get => _selectedPriorityFilter;
+        set
+        {
+            if (SetProperty(ref _selectedPriorityFilter, value))
+                ApplyCheckFilters();
+        }
+    }
+
+    public string SelectedCategoryFilter
+    {
+        get => _selectedCategoryFilter;
+        set
+        {
+            if (SetProperty(ref _selectedCategoryFilter, value))
+                ApplyCheckFilters();
+        }
+    }
+
+    public string SelectedDisciplineFilter
+    {
+        get => _selectedDisciplineFilter;
+        set
+        {
+            if (SetProperty(ref _selectedDisciplineFilter, value))
+                ApplyCheckFilters();
+        }
+    }
 
     /// <summary>True while the on-demand KB extraction is running.</summary>
     public bool IsSizeExtracting
@@ -190,6 +230,7 @@ public class ModelHealthViewModel : BaseViewModel
     public AsyncRelayCommand RefreshCommand         { get; }
     public AsyncRelayCommand LoadFamilySizesCommand { get; }
     public RelayCommand      ShowInModelCommand     { get; }
+    public RelayCommand      ShowWarningInModelCommand { get; }
     public Action? OnRefreshCompleted { get; set; }
 
     public ModelHealthViewModel(
@@ -226,6 +267,7 @@ public class ModelHealthViewModel : BaseViewModel
         RefreshCommand         = new AsyncRelayCommand(ExecuteRefreshAsync);
         LoadFamilySizesCommand = new AsyncRelayCommand(ExecuteLoadFamilySizesAsync);
         ShowInModelCommand     = new RelayCommand(ExecuteShowInModel);
+        ShowWarningInModelCommand = new RelayCommand(ExecuteShowWarningInModel);
     }
 
     public bool IsTimerRunning => _timer.IsRunning;
@@ -447,7 +489,7 @@ public class ModelHealthViewModel : BaseViewModel
             StatusText = "Trial expired";
             System.Windows.MessageBox.Show(
                 trialStatus.GetStatusMessage(),
-                "Modena Model Health Checker",
+                "Pulse",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
         }
@@ -474,8 +516,12 @@ public class ModelHealthViewModel : BaseViewModel
         ReplaceCollection(FailedChecks, response.FailedChecks);
         ReplaceCollection(Metrics,      response.Metrics);
         ReplaceCollection(Categories,   response.Categories);
+        ReplaceCollection(Warnings,     response.Warnings);
         ReplaceCollection(PassedChecks, response.PassedChecks);
         Families.Clear();
+        OnPropertyChanged(nameof(HasWarnings));
+        RebuildCheckFilters();
+        ApplyCheckFilters();
     }
 
     /// <summary>Applies a full response (fast data + families).</summary>
@@ -589,7 +635,28 @@ public class ModelHealthViewModel : BaseViewModel
             LogService.Error($"ViewModel: ShowElements failed for '{check.Name}'.", ex);
             System.Windows.MessageBox.Show(
                 $"Could not navigate to elements: {ex.Message}",
-                "Modena Model Health Checker",
+                "Pulse",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+    }
+
+    private void ExecuteShowWarningInModel(object? parameter)
+    {
+        if (parameter is not WarningDto warning || !warning.CanNavigate)
+            return;
+
+        try
+        {
+            _documentContext.ShowElements(warning.ElementIds);
+            LogService.Info($"ViewModel: ShowElements called for warning '{warning.Description}' — {warning.ElementIds.Count} elements.");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error($"ViewModel: ShowElements failed for warning '{warning.Description}'.", ex);
+            System.Windows.MessageBox.Show(
+                $"Could not navigate to warning elements: {ex.Message}",
+                "Pulse",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
         }
@@ -609,9 +676,43 @@ public class ModelHealthViewModel : BaseViewModel
             Metrics        = Metrics.ToList(),
             Categories     = Categories.ToList(),
             Families       = Families.ToList(),
+            Warnings       = Warnings.ToList(),
             PassedChecks   = PassedChecks.ToList()
         };
         _cache.Save(_cacheKey, snapshot);
+    }
+
+    private void RebuildCheckFilters()
+    {
+        var selectedCategory = SelectedCategoryFilter;
+        var selectedDiscipline = SelectedDisciplineFilter;
+
+        ReplaceCollection(CategoryFilters, new[] { "All" }
+            .Concat(FailedChecks.Select(c => c.Category).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
+            .ToList());
+
+        ReplaceCollection(DisciplineFilters, new[] { "All" }
+            .Concat(FailedChecks.Select(c => c.Discipline).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
+            .ToList());
+
+        SelectedCategoryFilter = CategoryFilters.Contains(selectedCategory) ? selectedCategory : "All";
+        SelectedDisciplineFilter = DisciplineFilters.Contains(selectedDiscipline) ? selectedDiscipline : "All";
+    }
+
+    private void ApplyCheckFilters()
+    {
+        var filtered = FailedChecks.AsEnumerable();
+
+        if (SelectedPriorityFilter != "All")
+            filtered = filtered.Where(c => c.Priority == SelectedPriorityFilter);
+
+        if (SelectedCategoryFilter != "All")
+            filtered = filtered.Where(c => c.Category == SelectedCategoryFilter);
+
+        if (SelectedDisciplineFilter != "All")
+            filtered = filtered.Where(c => c.Discipline == SelectedDisciplineFilter);
+
+        ReplaceCollection(FilteredFailedChecks, filtered.ToList());
     }
 
     private static string BuildCacheKey(ModelIdentity identity)

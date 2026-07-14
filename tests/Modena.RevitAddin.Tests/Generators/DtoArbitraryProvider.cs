@@ -15,4 +15,5 @@ public class DtoArbitraryProvider
     public static Arbitrary<MetricDto> MetricDto => DtoArbitraries.MetricDtoArbitrary();
     public static Arbitrary<CategoryDto> CategoryDto => DtoArbitraries.CategoryDtoArbitrary();
     public static Arbitrary<FamilyDto> FamilyDto => DtoArbitraries.FamilyDtoArbitrary();
+    public static Arbitrary<WarningDto> WarningDto => DtoArbitraries.WarningDtoArbitrary();
 }

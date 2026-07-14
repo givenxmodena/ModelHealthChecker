@@ -7,6 +7,8 @@ public class FailedCheckDto
     public string Category { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public string Discipline { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Recommendation { get; set; } = string.Empty;
 
     /// <summary>IDs of the elements that caused this check to fail. Used by Show in Model.</summary>
     public List<long> ElementIds { get; set; } = new();

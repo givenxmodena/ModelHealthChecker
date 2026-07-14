@@ -32,12 +32,17 @@ public class App : IExternalApplication
             LogService.Configure(config.LoggingLevel, appDataPath, localLogPath);
             LogService.Info("LogService configured. Add-in starting.");
 
+            // Initialize analytics (no-op if PostHogApiKey is empty)
+            var revitVersion = application.ControlledApplication.VersionNumber;
+            var appVersion   = typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown";
+            AnalyticsService.Initialize(config.PostHogApiKey, appVersion, revitVersion);
+
 #if TRIAL_VERSION
             var trialStatus = TrialManager.GetTrialStatus();
             if (trialStatus.IsExpired)
             {
                 LogService.Warn("Trial expired. Blocking add-in startup.");
-                TaskDialog.Show("Modena Model Health Checker", trialStatus.GetStatusMessage());
+                TaskDialog.Show("Pulse", trialStatus.GetStatusMessage());
                 return Result.Failed;
             }
 
@@ -63,11 +68,11 @@ public class App : IExternalApplication
 
             var buttonData = new PushButtonData(
                 "ModelHealthChecker",
-                "Model Health\nChecker",
+                "Pulse",
                 assemblyPath,
                 typeof(ModelHealthCheckerCommand).FullName!);
 
-            buttonData.ToolTip = "Open the Model Health Checker dashboard";
+            buttonData.ToolTip = "Open the Pulse dashboard";
             buttonData.LongDescription =
                 "Displays model health KPIs, failed checks, families, and element categories for the active Revit model.";
 

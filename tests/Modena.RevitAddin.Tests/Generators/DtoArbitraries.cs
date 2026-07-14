@@ -60,13 +60,28 @@ public static class DtoArbitraries
          from category in Arb.Generate<NonEmptyString>()
          from priority in Gen.Elements("HIGH", "MEDIUM", "LOW")
          from discipline in Arb.Generate<NonEmptyString>()
+         from description in Arb.Generate<NonEmptyString>()
+         from recommendation in Arb.Generate<NonEmptyString>()
          select new FailedCheckDto
          {
              Name = name.Get,
              Count = count,
              Category = category.Get,
              Priority = priority,
-             Discipline = discipline.Get
+             Discipline = discipline.Get,
+             Description = description.Get,
+             Recommendation = recommendation.Get
+         }).ToArbitrary();
+
+    public static Arbitrary<WarningDto> WarningDtoArbitrary() =>
+        (from description in Arb.Generate<NonEmptyString>()
+         from count in Gen.Choose(0, 1000)
+         from elementCount in Gen.Choose(0, 1000)
+         select new WarningDto
+         {
+             Description = description.Get,
+             Count = count,
+             ElementCount = elementCount
          }).ToArbitrary();
 
     public static Arbitrary<MetricDto> MetricDtoArbitrary() =>
@@ -94,6 +109,7 @@ public static class DtoArbitraries
          from metrics in Gen.ListOf(MetricDtoArbitrary().Generator)
          from categories in Gen.ListOf(CategoryDtoArbitrary().Generator)
          from families in Gen.ListOf(FamilyDtoArbitrary().Generator)
+         from warnings in Gen.ListOf(WarningDtoArbitrary().Generator)
          from passedChecks in Gen.ListOf(Arb.Generate<NonEmptyString>())
          select new DashboardResponse
          {
@@ -106,6 +122,7 @@ public static class DtoArbitraries
              Metrics = metrics.ToList(),
              Categories = categories.ToList(),
              Families = families.ToList(),
+             Warnings = warnings.ToList(),
              PassedChecks = passedChecks.Select(s => s.Get).ToList()
          }).ToArbitrary();
 }

@@ -9,10 +9,12 @@
     <PlatformTarget>x64</PlatformTarget>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <WarningsNotAsErrors>MSB3277</WarningsNotAsErrors>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(TrialBuild)' == 'true'">
-    <DefineConstants>$(DefineConstants);TRIAL_VERSION</DefineConstants>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+    <AssemblyInformationalVersion>1.0.4</AssemblyInformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DefineConstants Condition="'$(DisableTrialVersion)' != 'true'">$(DefineConstants);TRIAL_VERSION</DefineConstants>
   </PropertyGroup>
 
   <!-- Debug configuration to launch Revit 2026 -->
@@ -38,7 +40,13 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" />
   </ItemGroup>
+
+  <!-- Revit does not probe runtimes subfolders — copy WebView2Loader.dll to output root -->
+  <Target Name="CopyWebView2Loader" AfterTargets="Build">
+    <Exec Command="if exist &quot;$(TargetDir)runtimes\win-x64\native\WebView2Loader.dll&quot; copy /Y &quot;$(TargetDir)runtimes\win-x64\native\WebView2Loader.dll&quot; &quot;$(TargetDir)WebView2Loader.dll&quot;" IgnoreExitCode="true" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\Modena.Shared\Modena.Shared.csproj" />
@@ -53,6 +61,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\health-check_48.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\MHC_16.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\MHC_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\MHC_48.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

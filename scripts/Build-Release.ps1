@@ -6,8 +6,8 @@
 #   2. Revit 2024 API available for the Legacy (net48) build (optional)
 #
 # Usage:
-#   .\scripts\Build-Release.ps1 -Version "1.0.3"
-#   .\scripts\Build-Release.ps1 -Version "1.0.3" -PublishToGitHub
+#   .\scripts\Build-Release.ps1 -Version "1.0.4"
+#   .\scripts\Build-Release.ps1 -Version "1.0.4" -PublishToGitHub
 #
 param(
     [Parameter(Mandatory = $true)]

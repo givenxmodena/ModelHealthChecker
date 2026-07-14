@@ -55,7 +55,9 @@ if (-not $legacyApiDir) {
             $legacyBuildOutput = "src/Modena.RevitAddin.Legacy/bin/$Configuration/net48"
         }
         if (Test-Path $legacyBuildOutput) {
-            Copy-Item -Path (Join-Path $legacyBuildOutput "*") -Destination $legacyPath -Recurse -Force
+            Get-ChildItem -Path $legacyBuildOutput -Force |
+                Where-Object { $_.Name -ne "logs" } |
+                Copy-Item -Destination $legacyPath -Recurse -Force
             $legacyBuilt = $true
             $legacyDllCount = (Get-ChildItem -Path $legacyPath -Filter "*.dll" | Measure-Object).Count
             Write-Host "Built $legacyDllCount DLL files to $legacyPath" -ForegroundColor Green

@@ -332,7 +332,7 @@ class Program
 
     private static string GetAssemblyVersion()
     {
-        try { return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0.0"; }
-        catch { return "1.0.0.0"; }
+        try { return Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.4.0"; }
+        catch { return "1.0.4.0"; }
     }
 }

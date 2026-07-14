@@ -10,8 +10,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Modena.RevitAddin.Updater</RootNamespace>
     <AssemblyName>Modena.RevitAddin.Updater</AssemblyName>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+    <AssemblyInformationalVersion>1.0.4</AssemblyInformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- Output alongside the add-in DLL so Velopack packages everything together -->
     <!-- 2 levels up: Modena.RevitAddin.Updater/ -> src/ -> repo root -->

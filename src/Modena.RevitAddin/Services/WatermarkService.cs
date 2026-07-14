@@ -126,7 +126,7 @@ public static class WatermarkService
 
             var dialog = new Window
             {
-                Title = "Model Health Checker Trial Status",
+                Title = "Pulse Trial Status",
                 Width = 400,
                 Height = 250,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -142,7 +142,7 @@ public static class WatermarkService
                 {
                     new TextBlock
                     {
-                        Text = "Model Health Checker Trial Information",
+                        Text = "Pulse Trial Information",
                         FontSize = 16,
                         FontWeight = FontWeights.Bold,
                         Margin = new Thickness(0, 0, 0, 15)

@@ -14,10 +14,10 @@
 
 ; --- APS credentials (defaults to production; optional override with /D) ---
 #ifndef ApsClientId
-  #define ApsClientId "GKshdbezSremlBFGrg58fkePbadhIXAcW1MM0MgclDxct2Aq"
+  #define ApsClientId "9ifTUorBDoNZLG4UAiSVhxmolGVMg8eInhtb09z1AGkA2Xuw"
 #endif
 #ifndef ApsClientSecret
-  #define ApsClientSecret "FGZKDG6oN9qN0Oj0HOICWvad0GusD2O3tGxgdW4kAdS3BKa2mrxRYiQVhJFMIkwi"
+  #define ApsClientSecret "s2DbBpwxEPxygZSAiIPRxUxwyuoJu0TzCXNNRXJGGTOC4rfPRWkF70Xe8Nv0slR3"
 #endif
 ; Build: simply Compile (F9) in Inno Setup.
 ; To override for testing: add /DApsClientId=... /DApsClientSecret=... in "Compile with Parameters".
@@ -34,11 +34,11 @@
   #pragma message "APS Client Secret fingerprint: " + _SEC_F4 + "..." + _SEC_L4
 #endif
 
-#define AppVersion "1.0.3"
+#define AppVersion "1.0.4"
 
 [Setup]
 AppId={{B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E}}
-AppName=Modena Model Health Checker
+AppName=Pulse
 AppVersion={#AppVersion}
 AppPublisher=Modena AEC
 AppPublisherURL=https://modena-aec.co.za
@@ -46,7 +46,7 @@ AppSupportURL=https://modena-aec.co.za/contact
 AppUpdatesURL=https://modena-aec.co.za/contact
 AppCopyright=Copyright (c) 2026 Modena AEC
 DefaultDirName={pf}\Modena\ModelHealthChecker
-DefaultGroupName=Modena AEC\Model Health Checker
+DefaultGroupName=Modena AEC\Pulse
 OutputDir=installer-output
 OutputBaseFilename=ModenaModelHealthChecker-Setup-{#AppVersion}
 SetupIconFile=Modena-Icon.ico
@@ -308,11 +308,11 @@ begin
     '<?xml version="1.0" encoding="utf-8"?>' + #13#10 +
     '<RevitAddIns>' + #13#10 +
     '  <AddIn Type="Application">' + #13#10 +
-    '    <Name>Modena Model Health Checker</Name>' + #13#10 +
+    '    <Name>Pulse</Name>' + #13#10 +
     '    <Assembly>' + AssemblyPath + '</Assembly>' + #13#10 +
     '    <AddInId>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</AddInId>' + #13#10 +
     '    <FullClassName>Modena.RevitAddin.App</FullClassName>' + #13#10 +
-    '    <Text>Modena Model Health Checker</Text>' + #13#10 +
+    '    <Text>Pulse</Text>' + #13#10 +
     '    <Description>Displays model health KPIs, failed checks, families, and element categories for the active Revit model. Part of the Modena AEC &amp; INFR suite.</Description>' + #13#10 +
     '    <VisibilityMode>AlwaysVisible</VisibilityMode>' + #13#10 +
     '    <Discipline>Any</Discipline>' + #13#10 +
@@ -365,7 +365,7 @@ begin
       if IsRevitProcessRunning() then
       begin
         MsgBox('Revit is currently running.' + #13#10 + #13#10 +
-               'Model Health Checker cannot replace the add-in DLLs while Revit has them loaded.' + #13#10 +
+               'Pulse cannot replace the add-in DLLs while Revit has them loaded.' + #13#10 +
                'Please close ALL Revit windows and try running the installer again.',
                mbCriticalError, MB_OK);
         Abort();
@@ -393,13 +393,13 @@ begin
   if InstalledVersions = '' then
   begin
     MsgBox('No supported Revit versions (2024-2026) detected on this system.' + #13#10 +
-           'Modena Model Health Checker requires Revit 2024 or later.' + #13#10 + #13#10 +
+           'Pulse requires Revit 2024 or later.' + #13#10 + #13#10 +
            'Installation will continue, but the add-in will not be available until Revit is installed.',
            mbInformation, MB_OK);
   end
   else
   begin
-    MsgBox('Modena Model Health Checker will be installed for the following Revit versions:' + #13#10 +
+    MsgBox('Pulse will be installed for the following Revit versions:' + #13#10 +
            InstalledVersions + #13#10 + #13#10 +
            'Click OK to continue with installation.',
            mbInformation, MB_OK);
@@ -415,7 +415,7 @@ begin
   case CurUninstallStep of
     usUninstall:
     begin
-      MsgBox('Modena Model Health Checker will be removed from all installed Revit versions.' + #13#10 +
+      MsgBox('Pulse will be removed from all installed Revit versions.' + #13#10 +
              'Please restart Revit for changes to take effect.',
              mbInformation, MB_OK);
     end;

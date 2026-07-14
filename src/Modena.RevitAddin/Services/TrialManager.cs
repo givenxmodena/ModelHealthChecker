@@ -298,7 +298,7 @@ public class TrialStatus
     public string GetStatusMessage()
     {
         if (IsExpired)
-            return "Trial period has expired. Please purchase a license to continue using Modena Model Health Checker.";
+            return "Trial period has expired. Please purchase a license to continue using Pulse.";
 
         if (DaysRemaining <= 3 || RefreshesRemaining <= 10)
             return $"Trial expires in {DaysRemaining} days or {RefreshesRemaining} refreshes. Please purchase a license to continue uninterrupted.";

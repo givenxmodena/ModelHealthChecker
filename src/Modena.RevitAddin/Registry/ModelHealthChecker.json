@@ -1,6 +1,6 @@
 {
   "id": "ModelHealthChecker",
-  "displayName": "Model Health Checker",
+  "displayName": "Pulse",
   "assemblyPath": "%APPDATA%\\Autodesk\\Revit\\Addins\\2026\\ModenaSuite\\ModelHealthChecker\\Modena.RevitAddin.dll",
   "updateSource": {
     "type": "github",

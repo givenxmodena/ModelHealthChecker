@@ -10,7 +10,7 @@ public static class RibbonSetup
     public const string TabName = "Modena";
     public const string PanelName = "Model Health";
     public const string ButtonName = "ModelHealthChecker";
-    public const string ButtonText = "Model Health Checker";
+    public const string ButtonText = "Pulse";
 
     public static void CreateRibbon(IRevitApplication application, string assemblyPath)
     {

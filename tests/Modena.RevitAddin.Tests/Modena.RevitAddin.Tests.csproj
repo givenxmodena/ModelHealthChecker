@@ -19,7 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modena.Shared\Modena.Shared.csproj" />
-    <ProjectReference Include="..\..\src\Modena.RevitAddin\Modena.RevitAddin.csproj" />
+    <ProjectReference Include="..\..\src\Modena.RevitAddin\Modena.RevitAddin.csproj"
+                      AdditionalProperties="DisableTrialVersion=true" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,6 +17,14 @@
     <DefineConstants Condition="'$(DisableTrialVersion)' != 'true'">$(DefineConstants);TRIAL_VERSION</DefineConstants>
   </PropertyGroup>
 
+  <!-- The tests project builds this project a second time with DisableTrialVersion=true
+       (see Modena.RevitAddin.Tests.csproj). Give that variant its own bin/obj so the
+       two builds don't race over the same output files. -->
+  <PropertyGroup Condition="'$(DisableTrialVersion)' == 'true'">
+    <OutputPath>bin\$(Platform)\$(Configuration)\notrial\</OutputPath>
+    <IntermediateOutputPath>obj\$(Platform)\$(Configuration)\notrial\</IntermediateOutputPath>
+  </PropertyGroup>
+
   <!-- Debug configuration to launch Revit 2026 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <StartAction>Program</StartAction>
@@ -92,12 +100,12 @@
   </ItemGroup>
 
   <!-- Deploy to Modena Suite Modules folder for all installed Revit versions (Debug only) -->
-  <Target Name="DeployToModenaSuite" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+  <Target Name="DeployToModenaSuite" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug' and '$(DisableTrialVersion)' != 'true'">
     <Exec Command="powershell -ExecutionPolicy Bypass -NonInteractive -File &quot;$(ProjectDir)Deploy-ToSuite.ps1&quot; -AppId &quot;ModelHealthChecker&quot; -SourceDir &quot;$([System.IO.Path]::GetDirectoryName('$(TargetPath)'))&quot;" />
   </Target>
 
   <!-- PostBuild: deploy .addin to Revit 2026 addins folder (Debug only) -->
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Debug'">
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Debug' and '$(DisableTrialVersion)' != 'true'">
     <Exec Command="if not exist &quot;$(APPDATA)\Autodesk\Revit\Addins\2026&quot; mkdir &quot;$(APPDATA)\Autodesk\Revit\Addins\2026&quot;" IgnoreExitCode="true" />
     <Exec Command="if exist &quot;$(TargetDir)Modena.RevitAddin.addin&quot; copy &quot;$(TargetDir)Modena.RevitAddin.addin&quot; &quot;$(APPDATA)\Autodesk\Revit\Addins\2026\Modena.RevitAddin.addin&quot;" IgnoreExitCode="true" />
     <Exec Command="powershell -NoProfile -Command &quot;$f = \&quot;$env:APPDATA\\Autodesk\\Revit\\Addins\\2026\\Modena.RevitAddin.addin\&quot;; if (Test-Path $f) { $c = Get-Content $f -Raw; $c = $c -replace '(?s)(&lt;Assembly&gt;).*?(&lt;/Assembly&gt;)', '&lt;Assembly&gt;$(TargetPath)&lt;/Assembly&gt;'; Set-Content -Path $f -Value $c -Encoding UTF8 }&quot;" IgnoreExitCode="true" />

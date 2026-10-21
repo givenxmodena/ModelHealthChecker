@@ -120,6 +120,21 @@
         <StackPanel Margin="0,16,0,0">
             <TextBlock Text="{Binding Status}" Style="{StaticResource HistoryMessage}"/>
             <TextBlock Text="{Binding SaveWarning}" Style="{StaticResource HistoryMessage}" Foreground="{DynamicResource AccentAmber}"/>
+            <Border Style="{DynamicResource DashboardCard}" Margin="0,0,0,16">
+                <StackPanel>
+                    <DockPanel>
+                        <Button Content="Reload history" DockPanel.Dock="Right" Style="{StaticResource HistoryButton}" Command="{Binding ReloadCommand}" Margin="16,0,0,8" Padding="8,4"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                            <TextBlock Text="B  Baseline" Foreground="{DynamicResource AccentAmber}" Margin="0,0,16,0"/>
+                            <TextBlock Text="C  Current" Foreground="{DynamicResource AccentBlue}"/>
+                        </StackPanel>
+                        <TextBlock Text="PASS RATE OVER TIME" Style="{StaticResource HistoryLabel}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <local:TrendChart x:Name="HistoryChart" Records="{Binding Records}" Baseline="{Binding Baseline.Record}" Current="{Binding Current.Record}"
+                                      Height="230" ToolTipService.InitialShowDelay="100" ToolTipService.ShowDuration="30000"/>
+                </StackPanel>
+            </Border>
+
                 <Border x:Name="ScanPanel" Style="{DynamicResource DashboardCard}" Margin="0,0,8,0" VerticalAlignment="Top">
                     <StackPanel>
                         <TextBlock Text="SCAN HISTORY" Style="{StaticResource HistoryLabel}"/>

@@ -15,6 +15,7 @@ public partial class HistoryView : UserControl
         // Keep tables readable at the existing window's minimum width.
         var stacked = e.NewSize.Width < 1250;
         ScanGrid.Height = stacked ? 240 : 355;
+        HistoryChart.Height = stacked ? 180 : 230;
     }
 }
 

@@ -24,6 +24,8 @@ UI.zip
 
 # Markdown files
 *.md
+!docs/
+!docs/**/*.md
 
 # OS files
 .DS_Store

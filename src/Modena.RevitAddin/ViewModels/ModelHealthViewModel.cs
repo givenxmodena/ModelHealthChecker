@@ -49,6 +49,7 @@ public class ModelHealthViewModel : BaseViewModel
     private SummaryDto _summary = new();
 
     public ModelIdentity ModelIdentity { get; }
+    public HistoryViewModel History { get; }
 
     /// <summary>True when the loaded config has validation warnings to surface in the UI.</summary>
     public bool   HasConfigWarning  { get; }
@@ -252,6 +253,7 @@ public class ModelHealthViewModel : BaseViewModel
         _timer           = timer           ?? new RefreshTimerService();
         _cache           = new DashboardCacheService();
         _historyService  = historyService ?? new HealthHistoryService();
+        History          = new HistoryViewModel(_historyService);
 
         // Pre-populate from the document context so the header shows the model name
         // the moment the window opens, before any extraction runs (satisfies MHC-7 AC1).
@@ -288,6 +290,7 @@ public class ModelHealthViewModel : BaseViewModel
     {
         _cacheKey = BuildCacheKey(ModelIdentity);
         _historyKey = RevitHealthExtractor.BuildModelKey(_documentContext);
+        var historyLoad = History.LoadAsync(_historyKey);
         var cached = _cache.TryLoad(_cacheKey);
 
         if (cached is not null)
@@ -305,6 +308,7 @@ public class ModelHealthViewModel : BaseViewModel
             await FetchDataAsync(isRefresh: false, isSilent: false);
         }
 
+        await historyLoad;
         if (!_timerStarted && _config.AutoRefreshEnabled && HasData)
         {
             var interval = TimeSpan.FromMinutes(_config.RefreshIntervalMinutes);
@@ -687,9 +691,12 @@ public class ModelHealthViewModel : BaseViewModel
         _cache.Save(_cacheKey, snapshot);
         var record = HealthScanRecord.FromResponse(snapshot);
         record.ModelKey = _historyKey;
-        await Task.Run(() => _historyService.Append(_historyKey, record));
+        var saved = await Task.Run(() => _historyService.Append(_historyKey, record));
+        History.SaveWarning = saved ? "" : "This scan could not be saved to history. Check app logs and folder access.";
+        if (saved) await History.LoadAsync(_historyKey);
     }
 
+    public Task ReloadHistoryAsync() => History.LoadAsync(_historyKey);
 
     private void RebuildCheckFilters()
     {

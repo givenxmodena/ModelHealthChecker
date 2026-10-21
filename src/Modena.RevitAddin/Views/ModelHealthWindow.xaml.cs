@@ -40,6 +40,12 @@ public partial class ModelHealthWindow : Window
         }
     }
 
+    private async void OnHistorySelected(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(sender, e.OriginalSource) && DataContext is ModelHealthViewModel vm)
+            await vm.ReloadHistoryAsync();
+    }
+
 #if TRIAL_VERSION
     /// <summary>
     /// Adds trial banner to the main window if in trial mode.

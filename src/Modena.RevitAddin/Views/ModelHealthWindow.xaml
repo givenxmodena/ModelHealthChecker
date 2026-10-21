@@ -120,9 +120,11 @@
     </Window.Resources>
 
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="16">
-
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="16,16,16,0">
                 <!-- ===== HEADER ===== -->
                 <DockPanel Margin="0,0,0,16">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
@@ -161,6 +163,44 @@
 
                 <Border Height="1" Background="#1f2937" Margin="0,0,0,16"/>
 
+        </StackPanel>
+        <TabControl x:Name="MainTabs" Grid.Row="1" Margin="16,0,16,16" Background="Transparent" BorderThickness="0" SelectedIndex="0">
+            <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Border BorderBrush="#2d323c" BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True"/>
+                        </Border>
+                        <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                    </Grid>
+                </ControlTemplate>
+            </TabControl.Template>
+            <TabControl.Resources>
+                <Style x:Key="MainTab" TargetType="TabItem">
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border x:Name="HeaderBorder" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="16,10" Margin="0,0,8,0">
+                                    <ContentPresenter ContentSource="Header"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter TargetName="HeaderBorder" Property="BorderBrush" Value="{StaticResource AccentBlue}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.Resources>
+            <TabItem Header="Dashboard" Style="{StaticResource MainTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,16,0,0">
                 <!-- ===== CONFIG WARNING BANNER ===== -->
                 <Border Visibility="{Binding HasConfigWarning, Converter={StaticResource BoolToVis}}"
                         Background="#1c1500" BorderBrush="#78350f" BorderThickness="1"
@@ -791,7 +831,12 @@
                 </StackPanel>
                 <!-- End data state -->
 
-            </StackPanel>
-        </ScrollViewer>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="History" Style="{StaticResource MainTab}" Selector.Selected="OnHistorySelected">
+                <local:HistoryView DataContext="{Binding History}"/>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

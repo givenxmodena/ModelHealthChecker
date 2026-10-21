@@ -21,6 +21,8 @@ public class ModelHealthViewModel : BaseViewModel
     private readonly PluginConfig _config;
     private readonly RefreshTimerService _timer;
     private readonly DashboardCacheService _cache;
+    private readonly HealthHistoryService _historyService;
+    private string _historyKey = string.Empty;
     private readonly Dispatcher _dispatcher;
     private CancellationTokenSource? _cts;
     private bool _timerStarted;
@@ -239,7 +241,8 @@ public class ModelHealthViewModel : BaseViewModel
         IRevitDocumentContext documentContext,
         PluginConfig config,
         Dispatcher? dispatcher = null,
-        RefreshTimerService? timer = null)
+        RefreshTimerService? timer = null,
+        HealthHistoryService? historyService = null)
     {
         ModelIdentity    = modelIdentity   ?? throw new ArgumentNullException(nameof(modelIdentity));
         _extractor       = extractor       ?? throw new ArgumentNullException(nameof(extractor));
@@ -248,6 +251,7 @@ public class ModelHealthViewModel : BaseViewModel
         _dispatcher      = dispatcher      ?? Dispatcher.CurrentDispatcher;
         _timer           = timer           ?? new RefreshTimerService();
         _cache           = new DashboardCacheService();
+        _historyService  = historyService ?? new HealthHistoryService();
 
         // Pre-populate from the document context so the header shows the model name
         // the moment the window opens, before any extraction runs (satisfies MHC-7 AC1).
@@ -283,6 +287,7 @@ public class ModelHealthViewModel : BaseViewModel
     public async Task InitializeAsync()
     {
         _cacheKey = BuildCacheKey(ModelIdentity);
+        _historyKey = RevitHealthExtractor.BuildModelKey(_documentContext);
         var cached = _cache.TryLoad(_cacheKey);
 
         if (cached is not null)
@@ -377,7 +382,7 @@ public class ModelHealthViewModel : BaseViewModel
                 HasData           = true;
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
-                SaveSnapshot();
+                await SaveSnapshotAsync();
 #if TRIAL_VERSION
                 RecordSuccessfulTrialRefresh(isSilent: true);
 #endif
@@ -418,7 +423,7 @@ public class ModelHealthViewModel : BaseViewModel
 
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
-                SaveSnapshot();
+                await SaveSnapshotAsync();
 #if TRIAL_VERSION
                 RecordSuccessfulTrialRefresh(isSilent: false);
 #endif
@@ -662,7 +667,7 @@ public class ModelHealthViewModel : BaseViewModel
         }
     }
 
-    private void SaveSnapshot()
+    private async Task SaveSnapshotAsync()
     {
         if (!HasData || string.IsNullOrEmpty(_cacheKey)) return;
         var snapshot = new DashboardResponse
@@ -680,7 +685,11 @@ public class ModelHealthViewModel : BaseViewModel
             PassedChecks   = PassedChecks.ToList()
         };
         _cache.Save(_cacheKey, snapshot);
+        var record = HealthScanRecord.FromResponse(snapshot);
+        record.ModelKey = _historyKey;
+        await Task.Run(() => _historyService.Append(_historyKey, record));
     }
+
 
     private void RebuildCheckFilters()
     {

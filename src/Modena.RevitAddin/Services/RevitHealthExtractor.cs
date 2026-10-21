@@ -809,7 +809,7 @@ public class RevitHealthExtractor : IModelHealthExtractor
 #endif
     }
 
-    private static string BuildModelKey(IRevitDocumentContext context)
+    internal static string BuildModelKey(IRevitDocumentContext context)
     {
         if (context.IsCloudModel && !string.IsNullOrEmpty(context.ProjectGuid) && !string.IsNullOrEmpty(context.ModelGuid))
             return Slugify($"{context.ProjectGuid}-{context.ModelGuid}");

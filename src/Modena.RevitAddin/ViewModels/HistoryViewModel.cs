@@ -13,6 +13,7 @@ public sealed class HistoryViewModel : BaseViewModel
     private string _saveWarning = string.Empty;
     private HistoryScanItem? _baseline;
     private HistoryScanItem? _current;
+    private HealthScanRecord? _best;
     private bool _updatingScans;
     private string _preset = "Previous";
 
@@ -31,6 +32,17 @@ public sealed class HistoryViewModel : BaseViewModel
     public bool IsLoading { get => _isLoading; private set => SetProperty(ref _isLoading, value); }
     public string Status { get => _status; private set => SetProperty(ref _status, value); }
     public string SaveWarning { get => _saveWarning; set => SetProperty(ref _saveWarning, value); }
+    public string ScanCount => Records.Count.ToString("N0");
+    public string Since => HasHistory ? "since " + Records[0].Timestamp.ToLocalTime().ToString("d MMM yyyy") : "No scans yet";
+    public string LatestPassRate => HasHistory ? Records[Records.Count - 1].PassRate + "%" : "—";
+    public int? LatestChange => Records.Count > 1 ? Records[Records.Count - 1].PassRate - Records[Records.Count - 2].PassRate : (int?)null;
+    public string LatestDelta => LatestChange.HasValue ? FormatDelta(LatestChange.Value) + " vs previous" : HasHistory ? "First scan" : "No scans yet";
+    private HealthScanRecord? Best => _best;
+    public string BestPassRate => Best is { } best ? best.PassRate + "%" : "—";
+    public string BestDate => Best?.Timestamp.ToLocalTime().ToString("d MMM yyyy · HH:mm") ?? "No scans yet";
+    public int? ChangeSinceBestValue => HasHistory ? Records[Records.Count - 1].PassRate - Best!.PassRate : (int?)null;
+    public string ChangeSinceBest => ChangeSinceBestValue.HasValue ? FormatDelta(ChangeSinceBestValue.Value) : "—";
+
     public HistoryScanItem? Baseline
     {
         get => _baseline;
@@ -74,6 +86,9 @@ public sealed class HistoryViewModel : BaseViewModel
         var baselineId = Baseline?.Record.Id;
         var currentId = Current?.Record.Id;
         Records = records;
+        _best = null;
+        foreach (var record in records)
+            if (_best is null || record.PassRate >= _best.PassRate) _best = record;
         Scans = records.Select((r, i) => new HistoryScanItem(r,
             i == 0 ? null : (int?)(r.PassRate - records[i - 1].PassRate))).Reverse().ToList();
         _baseline = Scans.FirstOrDefault(s => s.Record.Id == baselineId);
@@ -85,7 +100,8 @@ public sealed class HistoryViewModel : BaseViewModel
         try
         {
             foreach (var name in new[] { nameof(Records), nameof(Scans), nameof(HasHistory), nameof(CanCompare),
-                     nameof(Baseline), nameof(Current) })
+                     nameof(ScanCount), nameof(Since), nameof(LatestPassRate), nameof(LatestDelta), nameof(LatestChange),
+                     nameof(BestPassRate), nameof(BestDate), nameof(ChangeSinceBest), nameof(ChangeSinceBestValue), nameof(Baseline), nameof(Current) })
                 OnPropertyChanged(name);
         }
         finally { _updatingScans = false; }

@@ -120,6 +120,29 @@
         <StackPanel Margin="0,16,0,0">
             <TextBlock Text="{Binding Status}" Style="{StaticResource HistoryMessage}"/>
             <TextBlock Text="{Binding SaveWarning}" Style="{StaticResource HistoryMessage}" Foreground="{DynamicResource AccentAmber}"/>
+            <UniformGrid Columns="4" Margin="0,0,0,16">
+                <Border Style="{DynamicResource DashboardCard}" Margin="0,0,6,0"><StackPanel>
+                    <TextBlock Text="SCANS LOGGED" Style="{StaticResource HistoryLabel}"/>
+                    <TextBlock Text="{Binding ScanCount}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding Since}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0"/>
+                </StackPanel></Border>
+                <Border Style="{DynamicResource DashboardCard}" Margin="3,0,3,0"><StackPanel>
+                    <TextBlock Text="LATEST PASS RATE" Style="{StaticResource HistoryLabel}"/>
+                    <TextBlock Text="{Binding LatestPassRate}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding LatestDelta}" Foreground="{Binding LatestChange, Converter={StaticResource DeltaBrush}}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel></Border>
+                <Border Style="{DynamicResource DashboardCard}" Margin="3,0,3,0"><StackPanel>
+                    <TextBlock Text="BEST SCAN" Style="{StaticResource HistoryLabel}"/>
+                    <TextBlock Text="{Binding BestPassRate}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding BestDate}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel></Border>
+                <Border Style="{DynamicResource DashboardCard}" Margin="6,0,0,0"><StackPanel>
+                    <TextBlock Text="CHANGE SINCE BEST" Style="{StaticResource HistoryLabel}"/>
+                    <TextBlock Text="{Binding ChangeSinceBest}" Foreground="{Binding ChangeSinceBestValue, Converter={StaticResource DeltaBrush}}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="Percentage points" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0"/>
+                </StackPanel></Border>
+            </UniformGrid>
+
             <Border Style="{DynamicResource DashboardCard}" Margin="0,0,0,16">
                 <StackPanel>
                     <DockPanel>

@@ -98,6 +98,135 @@ public sealed class HealthHistoryTests : IDisposable
     }
 
     [Fact]
+    public void HealthHistory_ComparisonDistinguishesMissingAndAllChangeTypes()
+    {
+        var before = Scan();
+        before.PassedCheckNames.Add("Stable");
+        before.FailedCheckSummaries.Add(new HealthCheckSummary { Name = "Resolved", Count = 1 });
+        before.FailedCheckSummaries.Add(new HealthCheckSummary { Name = "Regressed", Count = 1 });
+        var after = Scan(60);
+        after.PassedCheckNames = new List<string> { "Mirrors", "Resolved", "Stable", "Added" };
+        after.FailedCheckSummaries = new List<HealthCheckSummary>
+        {
+            new() { Name = "Rooms", Count = 3 }, new() { Name = "Names", Count = 4 },
+            new() { Name = "Regressed", Count = 5 }
+        };
+        var changes = HistoryViewModel.Compare(before, after).ToDictionary(c => c.Name);
+        Assert.Equal("Resolved", changes["Mirrors"].Status);
+        Assert.Equal("Resolved", changes["Resolved"].Status);
+        Assert.Equal("Newly failing", changes["Rooms"].Status);
+        Assert.Equal("Improved", changes["Names"].Status);
+        Assert.Equal("Regressed", changes["Regressed"].Status);
+        Assert.Equal("Unchanged", changes["Stable"].Status);
+        Assert.Equal("Not comparable", changes["Added"].Status);
+        Assert.Null(changes["Added"].BaselineCount);
+        Assert.Equal("Not comparable", HistoryViewModel.Compare(after, before).Single(c => c.Name == "Added").Status);
+        Assert.Equal(new[] { "Newly failing", "Regressed", "Resolved", "Resolved", "Improved", "Not comparable", "Unchanged" },
+            HistoryViewModel.Compare(before, after).Select(c => c.Status));
+    }
+
+    [Fact]
+    public async Task HealthHistory_FiltersAndSummaryAccountForChangesWithoutChangingSelections()
+    {
+        var service = Service;
+        var baseline = Scan();
+        baseline.PassedCheckNames.Add("Stable");
+        baseline.FailedCheckSummaries.Add(new HealthCheckSummary { Name = "Removed", Count = 2 });
+        var current = Scan(60);
+        current.Timestamp = baseline.Timestamp.AddMinutes(5);
+        current.PassedCheckNames = new List<string> { "Mirrors", "Stable", "Added" };
+        current.FailedCheckSummaries = new List<HealthCheckSummary>
+        {
+            new() { Name = "Rooms", Count = 3 }, new() { Name = "Names", Count = 4 }
+        };
+        service.Append("model", baseline);
+        service.Append("model", current);
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        Assert.Equal(CheckChangeFilter.Changed, vm.SelectedChangeFilter);
+        Assert.Equal(5, vm.Changes.Count);
+        Assert.Equal("1 check started failing; 1 check now passes; 1 existing issue improved; 2 checks cannot be compared.", vm.ComparisonSummary);
+        Assert.Contains(baseline.Timestamp.ToLocalTime().ToString("HH:mm:ss"), vm.BaselineCaption);
+        Assert.Contains(current.Timestamp.ToLocalTime().ToString("HH:mm:ss"), vm.CurrentCaption);
+
+        vm.SelectedChangeFilter = CheckChangeFilter.Worsened;
+        Assert.Equal("Newly failing", Assert.Single(vm.Changes).Status);
+        vm.SelectedChangeFilter = CheckChangeFilter.Improved;
+        Assert.Equal(new[] { "Resolved", "Improved" }, vm.Changes.Select(c => c.Status));
+        vm.SelectedChangeFilter = CheckChangeFilter.All;
+        Assert.Equal(6, vm.Changes.Count);
+        Assert.Equal("Unchanged", vm.Changes.Last().Status);
+        Assert.Equal(baseline.Id, vm.Baseline!.Record.Id);
+        Assert.Equal(current.Id, vm.Current!.Record.Id);
+        await vm.LoadAsync("model");
+        Assert.Equal(CheckChangeFilter.All, vm.SelectedChangeFilter);
+
+        vm.Current = vm.Baseline;
+        vm.SelectedChangeFilter = CheckChangeFilter.Worsened;
+        Assert.Empty(vm.Changes);
+        Assert.Equal("No check results changed.", vm.ComparisonSummary);
+        Assert.Equal("No checks worsened between these scans.", vm.EmptyChangesMessage);
+        vm.SelectedChangeFilter = CheckChangeFilter.Improved;
+        Assert.Empty(vm.Changes);
+        Assert.Equal("No checks improved between these scans.", vm.EmptyChangesMessage);
+    }
+
+    [Fact]
+    public async Task HealthHistory_EmptyRecordedCheckSetsDoNotClaimUnchangedResults()
+    {
+        var service = Service;
+        for (var i = 0; i < 2; i++)
+        {
+            var scan = Scan();
+            scan.PassedCheckNames.Clear();
+            scan.FailedCheckSummaries.Clear();
+            service.Append("model", scan);
+        }
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        Assert.Equal("No evaluated checks were recorded for these scans.", vm.ComparisonSummary);
+        foreach (var filter in vm.ChangeFilters)
+        {
+            vm.SelectedChangeFilter = filter;
+            Assert.Empty(vm.Changes);
+            Assert.Equal("No evaluated checks were recorded for these scans.", vm.EmptyChangesMessage);
+        }
+    }
+
+    [Fact]
+    public async Task HealthHistory_SelectionDefaultsAndManualSelectionsSurviveReload()
+    {
+        var service = Service;
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        Assert.False(vm.HasHistory);
+        Assert.False(vm.CanCompare);
+        Assert.Null(vm.Baseline);
+        var first = Scan(60);
+        service.Append("model", first);
+        await vm.LoadAsync("model");
+        Assert.False(vm.CanCompare);
+        Assert.Null(vm.Baseline);
+        service.Append("model", Scan(40));
+        await vm.LoadAsync("model");
+        Assert.Equal(first.Id, vm.Baseline!.Record.Id);
+        Assert.Equal("-20 pp", vm.ComparisonDelta);
+        Assert.Equal("60%", vm.BestPassRate);
+        Assert.True(vm.Scans[1].IsBaseline);
+        Assert.True(vm.Scans[0].IsCurrent);
+        vm.Current = vm.Scans[1];
+        var manualCurrent = vm.Current.Record.Id;
+        service.Append("model", Scan(80));
+        await vm.LoadAsync("model");
+        Assert.Equal(manualCurrent, vm.Current!.Record.Id);
+        vm.ComparePreviousCommand.Execute(null);
+        Assert.Equal(80, vm.Current.Record.PassRate);
+        Assert.Equal(40, vm.Baseline!.Record.PassRate);
+        vm.CompareBestCommand.Execute(null);
+        Assert.Equal(80, vm.Baseline.Record.PassRate);
+    }
+
+    [Fact]
     public void HealthHistory_UnknownVersionsWrongModelsAndInvalidCollectionsAreSkipped()
     {
         Service.Append("model", Scan());

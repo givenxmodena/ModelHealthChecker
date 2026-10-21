@@ -14,19 +14,32 @@ public sealed class HistoryViewModel : BaseViewModel
     private HistoryScanItem? _baseline;
     private HistoryScanItem? _current;
     private HealthScanRecord? _best;
+    private CheckChangeFilter _selectedChangeFilter;
     private bool _updatingScans;
     private string _preset = "Previous";
+    private IReadOnlyList<HealthCheckDelta> _allChanges = Array.Empty<HealthCheckDelta>();
 
     public HistoryViewModel(HealthHistoryService service)
     {
         _service = service;
         SelectBaselineCommand = new RelayCommand(p => Baseline = p as HistoryScanItem);
         SelectCurrentCommand = new RelayCommand(p => Current = p as HistoryScanItem);
+        ComparePreviousCommand = new RelayCommand(() => SelectPreset("Previous"));
+        CompareBestCommand = new RelayCommand(() => SelectPreset("Best"));
         ReloadCommand = new AsyncRelayCommand(() => LoadAsync(_modelKey));
     }
 
     public IReadOnlyList<HealthScanRecord> Records { get; private set; } = Array.Empty<HealthScanRecord>();
     public IReadOnlyList<HistoryScanItem> Scans { get; private set; } = Array.Empty<HistoryScanItem>();
+    public IReadOnlyList<CheckChangeFilter> ChangeFilters { get; } = new[]
+        { CheckChangeFilter.Changed, CheckChangeFilter.Worsened, CheckChangeFilter.Improved, CheckChangeFilter.All };
+    public IReadOnlyList<HealthCheckDelta> Changes => _allChanges.Where(c => SelectedChangeFilter switch
+    {
+        CheckChangeFilter.Worsened => c.IsWorsened,
+        CheckChangeFilter.Improved => c.IsImproved,
+        CheckChangeFilter.All => true,
+        _ => c.Status != "Unchanged"
+    }).ToList();
     public bool HasHistory => Records.Count > 0;
     public bool CanCompare => Records.Count > 1;
     public bool IsLoading { get => _isLoading; private set => SetProperty(ref _isLoading, value); }
@@ -42,20 +55,76 @@ public sealed class HistoryViewModel : BaseViewModel
     public string BestDate => Best?.Timestamp.ToLocalTime().ToString("d MMM yyyy · HH:mm") ?? "No scans yet";
     public int? ChangeSinceBestValue => HasHistory ? Records[Records.Count - 1].PassRate - Best!.PassRate : (int?)null;
     public string ChangeSinceBest => ChangeSinceBestValue.HasValue ? FormatDelta(ChangeSinceBestValue.Value) : "—";
+    public int? ComparisonChange => Baseline is null || Current is null ? (int?)null : Current.Record.PassRate - Baseline.Record.PassRate;
+    public string ComparisonDelta => Baseline is null || Current is null ? "Select two scans" : FormatDelta(Current.Record.PassRate - Baseline.Record.PassRate);
+    public string ComparisonRate => Baseline is null || Current is null ? "—" : $"{Baseline.Record.PassRate}% → {Current.Record.PassRate}%";
+    public string CoverageSummary => !CanCompare ? "Two scans are needed to compare results."
+        : string.Join(" · ", _allChanges.GroupBy(c => c.Status).Select(g => $"{g.Count()} {g.Key.ToLowerInvariant()}"));
+    public string BaselineCaption => Baseline is null ? "Baseline: select a scan" : $"Baseline: {Baseline.Record.Timestamp.ToLocalTime():d MMM · HH:mm:ss}";
+    public string CurrentCaption => Current is null ? "Current: select a scan" : $"Current: {Current.Record.Timestamp.ToLocalTime():d MMM · HH:mm:ss}";
+    public string ComparisonSummary
+    {
+        get
+        {
+            if (Baseline is null || Current is null) return "Select a baseline and current scan to compare.";
+            if (_allChanges.Count == 0) return "No evaluated checks were recorded for these scans.";
+            var phrases = new[]
+            {
+                Describe("Newly failing", "check started failing", "checks started failing"),
+                Describe("Regressed", "existing issue worsened", "existing issues worsened"),
+                Describe("Resolved", "check now passes", "checks now pass"),
+                Describe("Improved", "existing issue improved", "existing issues improved"),
+                Describe("Not comparable", "check cannot be compared", "checks cannot be compared")
+            }.Where(p => p.Length > 0).ToList();
+            return phrases.Count > 0 ? string.Join("; ", phrases) + "." : "No check results changed.";
+        }
+    }
+    public string EmptyChangesMessage => !CanCompare || Baseline is null || Current is null
+        ? "Two selected scans are needed to compare results."
+        : _allChanges.Count == 0 ? "No evaluated checks were recorded for these scans."
+        : SelectedChangeFilter switch
+        {
+            CheckChangeFilter.Worsened => "No checks worsened between these scans.",
+            CheckChangeFilter.Improved => "No checks improved between these scans.",
+            CheckChangeFilter.All => "No evaluated checks were recorded for these scans.",
+            _ => "No check results changed between these scans."
+        };
+    public string ComparisonNote => !CanCompare ? "" : _allChanges.Any(c => c.Status == "Not comparable")
+        ? "Check sets differ. Missing checks are not treated as passing. Counts show affected items."
+        : "Counts show affected items. pp means percentage points.";
+
+    public CheckChangeFilter SelectedChangeFilter
+    {
+        get => _selectedChangeFilter;
+        set
+        {
+            if (!SetProperty(ref _selectedChangeFilter, value)) return;
+            OnPropertyChanged(nameof(Changes));
+            OnPropertyChanged(nameof(EmptyChangesMessage));
+        }
+    }
+
+    private string Describe(string status, string singular, string plural)
+    {
+        var count = _allChanges.Count(c => c.Status == status);
+        return count == 0 ? "" : $"{count} {(count == 1 ? singular : plural)}";
+    }
 
     public HistoryScanItem? Baseline
     {
         get => _baseline;
-        set { if (!_updatingScans && SetProperty(ref _baseline, value)) { _preset = "Manual"; UpdateSelection(); } }
+        set { if (!_updatingScans && SetProperty(ref _baseline, value)) { _preset = "Manual"; UpdateComparison(); } }
     }
     public HistoryScanItem? Current
     {
         get => _current;
-        set { if (!_updatingScans && SetProperty(ref _current, value)) { _preset = "Manual"; UpdateSelection(); } }
+        set { if (!_updatingScans && SetProperty(ref _current, value)) { _preset = "Manual"; UpdateComparison(); } }
     }
 
     public RelayCommand SelectBaselineCommand { get; }
     public RelayCommand SelectCurrentCommand { get; }
+    public RelayCommand ComparePreviousCommand { get; }
+    public RelayCommand CompareBestCommand { get; }
     public AsyncRelayCommand ReloadCommand { get; }
 
     public async Task LoadAsync(string modelKey)
@@ -105,26 +174,65 @@ public sealed class HistoryViewModel : BaseViewModel
                 OnPropertyChanged(name);
         }
         finally { _updatingScans = false; }
-        UpdateSelection();
+        UpdateComparison();
+    }
+
+    private void SelectPreset(string preset)
+    {
+        _preset = preset;
+        ApplyPreset();
+        OnPropertyChanged(nameof(Baseline));
+        OnPropertyChanged(nameof(Current));
+        UpdateComparison();
     }
 
     private void ApplyPreset()
     {
         _current = Scans.FirstOrDefault();
-        _baseline = !CanCompare ? null : Scans[1];
+        _baseline = !CanCompare ? null : _preset == "Best"
+            ? Scans.OrderByDescending(s => s.Record.PassRate).First() : Scans[1];
     }
 
-    private void UpdateSelection()
+    private void UpdateComparison()
     {
         foreach (var scan in Scans)
         {
             scan.IsBaseline = ReferenceEquals(scan, Baseline);
             scan.IsCurrent = ReferenceEquals(scan, Current);
         }
+        _allChanges = Baseline is null || Current is null ? Array.Empty<HealthCheckDelta>()
+            : Compare(Baseline.Record, Current.Record);
+        foreach (var name in new[] { nameof(Changes), nameof(ComparisonDelta), nameof(ComparisonRate), nameof(ComparisonChange),
+                     nameof(CoverageSummary), nameof(ComparisonSummary), nameof(EmptyChangesMessage),
+                     nameof(BaselineCaption), nameof(CurrentCaption), nameof(ComparisonNote) })
+            OnPropertyChanged(name);
+    }
+
+    public static IReadOnlyList<HealthCheckDelta> Compare(HealthScanRecord baseline, HealthScanRecord current)
+    {
+        var before = EvaluatedChecks(baseline);
+        var after = EvaluatedChecks(current);
+        return before.Keys.Union(after.Keys, StringComparer.Ordinal).Select(name =>
+        {
+            before.TryGetValue(name, out var b);
+            after.TryGetValue(name, out var c);
+            return new HealthCheckDelta(name, b, c);
+        }).OrderBy(c => c.SortOrder)
+          .ThenBy(c => c.Name, StringComparer.Ordinal).ToList();
+    }
+
+    private static Dictionary<string, HealthCheckSummary> EvaluatedChecks(HealthScanRecord record)
+    {
+        var result = record.PassedCheckNames.Distinct(StringComparer.Ordinal)
+            .ToDictionary(name => name, name => new HealthCheckSummary { Name = name }, StringComparer.Ordinal);
+        foreach (var check in record.FailedCheckSummaries) result[check.Name] = check;
+        return result;
     }
 
     public static string FormatDelta(int delta) => delta == 0 ? "No change" : $"{delta:+0;-0} pp";
 }
+
+public enum CheckChangeFilter { Changed, Worsened, Improved, All }
 
 public sealed class HistoryScanItem : BaseViewModel
 {
@@ -142,3 +250,32 @@ public sealed class HistoryScanItem : BaseViewModel
     public bool IsCurrent { get => _isCurrent; set => SetProperty(ref _isCurrent, value); }
 }
 
+public sealed class HealthCheckDelta
+{
+    public HealthCheckDelta(string name, HealthCheckSummary? baseline, HealthCheckSummary? current)
+    {
+        Name = name;
+        Category = (!string.IsNullOrEmpty(current?.Category) ? current : baseline)?.Category ?? "";
+        Priority = (!string.IsNullOrEmpty(current?.Priority) ? current : baseline)?.Priority ?? "";
+        BaselineCount = baseline?.Count;
+        CurrentCount = current?.Count;
+    }
+    public string Name { get; }
+    public string Category { get; }
+    public string Priority { get; }
+    public int? BaselineCount { get; }
+    public int? CurrentCount { get; }
+    public string Counts => $"{(BaselineCount.HasValue ? BaselineCount.ToString() : "—")} → {(CurrentCount.HasValue ? CurrentCount.ToString() : "—")}";
+    public bool IsWorsened => Status == "Newly failing" || Status == "Regressed";
+    public bool IsImproved => Status == "Resolved" || Status == "Improved";
+    internal int SortOrder => Status switch
+    {
+        "Newly failing" => 0, "Regressed" => 1, "Resolved" => 2,
+        "Improved" => 3, "Not comparable" => 4, _ => 5
+    };
+    public string Status => !BaselineCount.HasValue || !CurrentCount.HasValue ? "Not comparable"
+        : BaselineCount == CurrentCount ? "Unchanged"
+        : BaselineCount == 0 ? "Newly failing"
+        : CurrentCount == 0 ? "Resolved"
+        : CurrentCount < BaselineCount ? "Improved" : "Regressed";
+}

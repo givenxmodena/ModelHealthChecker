@@ -54,6 +54,56 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#111318"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" Background="{TemplateBinding Background}"
+                                          IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}" BorderBrush="#2d323c" BorderThickness="1" CornerRadius="4" Padding="8,7">
+                                            <DockPanel>
+                                                <TextBlock Text="⌄" DockPanel.Dock="Right" Foreground="#9ca3af" Margin="8,0,0,0"/>
+                                                <TextBlock Text="{Binding SelectedItem.Label, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}">
+                                <Border Background="#1a1d23" BorderBrush="#2d323c" BorderThickness="1" Padding="4"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                    <ScrollViewer MaxHeight="260"><ItemsPresenter/></ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#e5e7eb"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Item" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Item" Property="Background" Value="#263e66"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="HistoryGrid" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="IsReadOnly" Value="True"/>
@@ -105,6 +155,16 @@
                     </Style>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="ChangeText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="Newly failing"><Setter Property="Foreground" Value="{DynamicResource AccentRed}"/></DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Regressed"><Setter Property="Foreground" Value="{DynamicResource AccentRed}"/></DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Resolved"><Setter Property="Foreground" Value="{DynamicResource AccentGreen}"/></DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="Improved"><Setter Property="Foreground" Value="{DynamicResource AccentGreen}"/></DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="HistoryMessage" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
@@ -158,6 +218,9 @@
                 </StackPanel>
             </Border>
 
+            <Grid x:Name="DetailGrid">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition x:Name="ComparisonColumn" Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <Border x:Name="ScanPanel" Style="{DynamicResource DashboardCard}" Margin="0,0,8,0" VerticalAlignment="Top">
                     <StackPanel>
                         <TextBlock Text="SCAN HISTORY" Style="{StaticResource HistoryLabel}"/>
@@ -184,6 +247,89 @@
                     </StackPanel>
                 </Border>
 
+                <Border x:Name="ComparisonPanel" Grid.Column="1" Style="{DynamicResource DashboardCard}" Margin="8,0,0,0" VerticalAlignment="Top">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,10">
+                            <WrapPanel DockPanel.Dock="Right" IsEnabled="{Binding CanCompare}" Margin="12,0,0,0">
+                                <Button Content="Previous → latest" Style="{StaticResource HistoryButton}" Command="{Binding ComparePreviousCommand}" Margin="0,0,6,0"/>
+                                <Button Content="Compare with best" Style="{StaticResource HistoryButton}" Command="{Binding CompareBestCommand}"/>
+                            </WrapPanel>
+                            <TextBlock Text="COMPARE SCANS" Style="{StaticResource HistoryLabel}" Margin="0" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <Grid IsEnabled="{Binding CanCompare}" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,4,0">
+                                <TextBlock Text="Baseline (B)" Foreground="{DynamicResource AccentAmber}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                <ComboBox x:Name="BaselineSelector" ItemsSource="{Binding Scans}" SelectedItem="{Binding Baseline}" DisplayMemberPath="Label" FontSize="11" ToolTip="{Binding Baseline.Label}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Text="Current (C)" Foreground="{DynamicResource AccentBlue}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                <ComboBox ItemsSource="{Binding Scans}" SelectedItem="{Binding Current}" DisplayMemberPath="Label" FontSize="11" ToolTip="{Binding Current.Label}"/>
+                            </StackPanel>
+                        </Grid>
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="{Binding BaselineCaption}" Foreground="{DynamicResource AccentAmber}" FontSize="11" Margin="0,0,16,0"/>
+                            <TextBlock Text="{Binding CurrentCaption}" Foreground="{DynamicResource AccentBlue}" FontSize="11"/>
+                        </WrapPanel>
+                        <Border Background="{DynamicResource BarBg}" CornerRadius="4" Padding="12" Margin="0,0,0,10">
+                            <WrapPanel><TextBlock Text="{Binding ComparisonRate}" FontWeight="Bold" FontSize="20" Margin="0,0,16,0"/>
+                                <TextBlock Text="{Binding ComparisonDelta}" Foreground="{Binding ComparisonChange, Converter={StaticResource DeltaBrush}}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center"/></WrapPanel>
+                        </Border>
+                        <TextBlock Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding CoverageSummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <ListBox x:Name="ChangeFilter" ItemsSource="{Binding ChangeFilters}" SelectedItem="{Binding SelectedChangeFilter}"
+                                 IsEnabled="{Binding CanCompare}" Background="Transparent" BorderThickness="0" Margin="0,0,0,10"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 AutomationProperties.Name="Filter check changes">
+                            <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template"><Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="FilterBorder" Background="{DynamicResource BarBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="4" Padding="10,6" Margin="0,0,6,4">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="FilterBorder" Property="Background" Value="{DynamicResource AccentBlue}"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FilterBorder" Property="BorderBrush" Value="White"/></Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value></Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="{Binding EmptyChangesMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,8">
+                            <TextBlock.Style><Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding Changes.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                            </Style></TextBlock.Style>
+                        </TextBlock>
+                        <DataGrid ItemsSource="{Binding Changes}" MaxHeight="300" MinHeight="90">
+                            <DataGrid.Style><Style TargetType="DataGrid" BasedOn="{StaticResource HistoryGrid}">
+                                <Style.Triggers><DataTrigger Binding="{Binding Changes.Count}" Value="0"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                            </Style></DataGrid.Style>
+                            <DataGrid.RowStyle><Style TargetType="DataGridRow"><Setter Property="Background" Value="Transparent"/></Style></DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="CHECK" Width="*" MinWidth="125"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel>
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                                    <ContentControl Content="{Binding}" ContentTemplate="{DynamicResource PriorityBadge}" HorizontalAlignment="Left" Margin="0,3,0,2"/>
+                                    <TextBlock Text="{Binding Category}" Foreground="{DynamicResource TextSecondary}" FontSize="10"/>
+                                </StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                <DataGridTextColumn Header="THEN → NOW" Binding="{Binding Counts}" Width="85"/>
+                                <DataGridTemplateColumn Header="CHANGE" Width="100"><DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                    <TextBlock Text="{Binding Status}" Style="{StaticResource ChangeText}" FontSize="11"/>
+                                </DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="{Binding ComparisonNote}" Foreground="{DynamicResource TextSecondary}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
             <TextBlock Text="History is saved on this computer for your Windows user." Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,16,0,8"/>
         </StackPanel>
     </ScrollViewer>

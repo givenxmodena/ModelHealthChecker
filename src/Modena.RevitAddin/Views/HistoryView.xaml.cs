@@ -14,6 +14,12 @@ public partial class HistoryView : UserControl
     {
         // Keep tables readable at the existing window's minimum width.
         var stacked = e.NewSize.Width < 1250;
+        Grid.SetRow(ScanPanel, stacked ? 1 : 0);
+        Grid.SetColumn(ComparisonPanel, stacked ? 0 : 1);
+        Grid.SetRow(ComparisonPanel, 0);
+        ComparisonColumn.Width = stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        ScanPanel.Margin = stacked ? new Thickness(0, 12, 0, 0) : new Thickness(0, 0, 8, 0);
+        ComparisonPanel.Margin = stacked ? new Thickness(0) : new Thickness(8, 0, 0, 0);
         ScanGrid.Height = stacked ? 240 : 355;
         HistoryChart.Height = stacked ? 180 : 230;
     }

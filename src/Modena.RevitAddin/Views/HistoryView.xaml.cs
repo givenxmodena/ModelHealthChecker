@@ -10,6 +10,15 @@ public partial class HistoryView : UserControl
 {
     public HistoryView() => InitializeComponent();
 
+    private void OnScanPageChanged(object sender, DataTransferEventArgs e)
+    {
+        if (e.Property != ItemsControl.ItemsSourceProperty) return;
+        ScanGrid.ApplyTemplate();
+        // Reset only the table's scroll position; keep the surrounding page still.
+        if (ScanGrid.Template?.FindName("DG_ScrollViewer", ScanGrid) is ScrollViewer scroller)
+            scroller.ScrollToTop();
+    }
+
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         // Keep tables readable at the existing window's minimum width.

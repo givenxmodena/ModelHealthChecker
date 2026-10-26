@@ -290,7 +290,7 @@
                     <StackPanel>
                         <TextBlock Text="SCAN HISTORY" Style="{StaticResource HistoryLabel}"/>
                         <TextBlock Text="Choose B for baseline or C for current." Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,0,0,12"/>
-                        <DataGrid x:Name="ScanGrid" ItemsSource="{Binding Scans}" Style="{StaticResource HistoryGrid}" Height="355">
+                        <DataGrid x:Name="ScanGrid" ItemsSource="{Binding PageScans, NotifyOnTargetUpdated=True}" TargetUpdated="OnScanPageChanged" Style="{StaticResource HistoryGrid}" Height="355">
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Header="DATE / TIME" Width="115"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel>
                                     <TextBlock Text="{Binding Date}"/>
@@ -309,6 +309,14 @@
                                 </StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        <DockPanel Margin="0,12,0,0">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
+                                <Button x:Name="PreviousScanPage" Content="Previous" Style="{StaticResource HistoryButton}" Command="{Binding PreviousPageCommand}" Padding="8,4"/>
+                                <TextBlock x:Name="ScanPageSummary" Text="{Binding PageSummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Center" Margin="10,0"/>
+                                <Button x:Name="NextScanPage" Content="Next" Style="{StaticResource HistoryButton}" Command="{Binding NextPageCommand}" Padding="8,4"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding PageRange}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                        </DockPanel>
                     </StackPanel>
                 </Border>
 

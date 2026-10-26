@@ -361,6 +361,107 @@ public sealed class HealthHistoryTests : IDisposable
         Assert.False(vm.CanCompare);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(25)]
+    public async Task HealthHistory_PagesCoverEveryScanAndGuardBoundaries(int count)
+    {
+        var service = Service;
+        var start = new DateTime(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
+        for (var i = 0; i < count; i++)
+        {
+            var record = Scan(i * 3);
+            record.Timestamp = start.AddMinutes(i);
+            Assert.True(service.Append("model", record));
+        }
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        Assert.Equal((count + 9) / 10, vm.PageCount);
+        Assert.Equal(count == 0 ? 0 : 1, vm.PageNumber);
+        Assert.False(vm.PreviousPageCommand.CanExecute(null));
+        vm.PreviousPageCommand.Execute(null);
+        Assert.Equal(count == 0 ? 0 : 1, vm.PageNumber);
+        var baseline = vm.Baseline;
+        var current = vm.Current;
+        var visited = new List<string>();
+        do
+        {
+            Assert.InRange(vm.PageScans.Count, 0, HistoryViewModel.PageSize);
+            visited.AddRange(vm.PageScans.Select(s => s.Record.Id));
+            foreach (var row in vm.PageScans)
+            {
+                var chronologicalIndex = vm.Records.ToList().FindIndex(r => r.Id == row.Record.Id);
+                Assert.Equal(chronologicalIndex == 0 ? (int?)null : 3, row.Delta);
+            }
+            Assert.Same(baseline, vm.Baseline);
+            Assert.Same(current, vm.Current);
+            if (!vm.NextPageCommand.CanExecute(null)) break;
+            vm.NextPageCommand.Execute(null);
+        } while (true);
+        Assert.Equal(vm.Scans.Select(s => s.Record.Id), visited);
+        Assert.Equal(count, vm.Records.Count);
+        Assert.Equal(count, vm.Scans.Count);
+        var finalPage = vm.PageNumber;
+        vm.NextPageCommand.Execute(null);
+        Assert.Equal(finalPage, vm.PageNumber);
+        Assert.False(vm.NextPageCommand.CanExecute(null));
+        if (count == 0) Assert.Equal("No scans recorded", vm.PageRange);
+        if (count == 25) Assert.Equal("21–25 of 25 scans", vm.PageRange);
+    }
+
+    [Fact]
+    public async Task HealthHistory_PagingPreservesCrossPageSelectionsAndRefreshContext()
+    {
+        var service = Service;
+        var start = new DateTime(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
+        void Append(int minute)
+        {
+            var record = Scan(40 + minute);
+            record.Timestamp = start.AddMinutes(minute);
+            Assert.True(service.Append("model", record));
+        }
+        for (var i = 0; i < 25; i++) Append(i);
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        vm.SelectBaselineCommand.Execute(vm.PageScans[0]);
+        var baselineId = vm.Baseline!.Record.Id;
+        vm.NextPageCommand.Execute(null);
+        var anchorId = vm.PageScans[0].Record.Id;
+        vm.SelectCurrentCommand.Execute(vm.PageScans[0]);
+        var currentId = vm.Current!.Record.Id;
+        var selectionDelta = vm.ComparisonDelta;
+        for (var i = 25; i < 37; i++) Append(i);
+        await vm.LoadAsync("model");
+        Assert.Equal(3, vm.PageNumber);
+        Assert.Contains(vm.PageScans, s => s.Record.Id == anchorId);
+        Assert.Equal(baselineId, vm.Baseline!.Record.Id);
+        Assert.Equal(currentId, vm.Current!.Record.Id);
+        Assert.Equal(selectionDelta, vm.ComparisonDelta);
+        Assert.Equal("76%", vm.LatestPassRate);
+        while (vm.PreviousPageCommand.CanExecute(null)) vm.PreviousPageCommand.Execute(null);
+        Append(37);
+        await vm.LoadAsync("model");
+        Assert.Equal(1, vm.PageNumber);
+        Assert.Equal(77, vm.PageScans[0].Record.PassRate);
+        Assert.Equal("1–10 of 38 scans", vm.PageRange);
+
+        vm.NextPageCommand.Execute(null);
+        Assert.True(service.Append("other", Scan(key: "other")));
+        await vm.LoadAsync("other");
+        Assert.Equal(1, vm.PageNumber);
+        Assert.Single(vm.PageScans);
+        Assert.False(vm.NextPageCommand.CanExecute(null));
+        await vm.LoadAsync("empty");
+        Assert.Equal(0, vm.PageNumber);
+        Assert.Empty(vm.PageScans);
+        Assert.Equal("Page 0 of 0", vm.PageSummary);
+        Assert.False(vm.PreviousPageCommand.CanExecute(null));
+        Assert.False(vm.NextPageCommand.CanExecute(null));
+    }
+
     internal static Task OnDispatcher(Func<Task> action)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

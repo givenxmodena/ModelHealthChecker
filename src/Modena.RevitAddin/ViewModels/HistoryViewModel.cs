@@ -18,6 +18,8 @@ public sealed class HistoryViewModel : BaseViewModel
     private bool _updatingScans;
     private string _preset = "Previous";
     private IReadOnlyList<HealthCheckDelta> _allChanges = Array.Empty<HealthCheckDelta>();
+    private int _pageIndex;
+    public const int PageSize = 10;
 
     public HistoryViewModel(HealthHistoryService service)
     {
@@ -27,10 +29,19 @@ public sealed class HistoryViewModel : BaseViewModel
         ComparePreviousCommand = new RelayCommand(() => SelectPreset("Previous"));
         CompareBestCommand = new RelayCommand(() => SelectPreset("Best"));
         ReloadCommand = new AsyncRelayCommand(() => LoadAsync(_modelKey));
+        PreviousPageCommand = new RelayCommand(() => ChangePage(-1), () => _pageIndex > 0);
+        NextPageCommand = new RelayCommand(() => ChangePage(1), () => _pageIndex + 1 < PageCount);
     }
 
     public IReadOnlyList<HealthScanRecord> Records { get; private set; } = Array.Empty<HealthScanRecord>();
     public IReadOnlyList<HistoryScanItem> Scans { get; private set; } = Array.Empty<HistoryScanItem>();
+    public IReadOnlyList<HistoryScanItem> PageScans { get; private set; } = Array.Empty<HistoryScanItem>();
+    public int PageCount => (Scans.Count + PageSize - 1) / PageSize;
+    public int PageNumber => HasHistory ? _pageIndex + 1 : 0;
+    public string PageSummary => $"Page {PageNumber:N0} of {PageCount:N0}";
+    public string PageRange => HasHistory
+        ? $"{_pageIndex * PageSize + 1:N0}–{Math.Min((_pageIndex + 1) * PageSize, Scans.Count):N0} of {Scans.Count:N0} scans"
+        : "No scans recorded";
     public IReadOnlyList<CheckChangeFilter> ChangeFilters { get; } = new[]
         { CheckChangeFilter.Changed, CheckChangeFilter.Worsened, CheckChangeFilter.Improved, CheckChangeFilter.All };
     public IReadOnlyList<HealthCheckDelta> Changes => _allChanges.Where(c => SelectedChangeFilter switch
@@ -134,9 +145,31 @@ public sealed class HistoryViewModel : BaseViewModel
     public RelayCommand ComparePreviousCommand { get; }
     public RelayCommand CompareBestCommand { get; }
     public AsyncRelayCommand ReloadCommand { get; }
+    public RelayCommand PreviousPageCommand { get; }
+    public RelayCommand NextPageCommand { get; }
+
+    private void ChangePage(int offset)
+    {
+        var index = _pageIndex + offset;
+        if (index < 0 || index >= PageCount) return;
+        _pageIndex = index;
+        UpdatePage();
+    }
+
+    private void UpdatePage()
+    {
+        _pageIndex = Math.Max(0, Math.Min(_pageIndex, PageCount - 1));
+        PageScans = Scans.Skip(_pageIndex * PageSize).Take(PageSize).ToList();
+        foreach (var name in new[] { nameof(PageScans), nameof(PageCount), nameof(PageNumber), nameof(PageSummary), nameof(PageRange) })
+            OnPropertyChanged(name);
+        PreviousPageCommand.RaiseCanExecuteChanged();
+        NextPageCommand.RaiseCanExecuteChanged();
+    }
+
     public async Task LoadAsync(string modelKey)
     {
         if (string.IsNullOrWhiteSpace(modelKey)) return;
+        if (_modelKey != modelKey) _pageIndex = 0;
         _modelKey = modelKey;
         var version = ++_loadVersion;
         IsLoading = true;
@@ -161,12 +194,16 @@ public sealed class HistoryViewModel : BaseViewModel
     {
         var baselineId = Baseline?.Record.Id;
         var currentId = Current?.Record.Id;
+        var pageAnchor = _pageIndex > 0 ? PageScans.FirstOrDefault()?.Record.Id : null;
         Records = records;
         _best = null;
         foreach (var record in records)
             if (_best is null || record.PassRate >= _best.PassRate) _best = record;
         Scans = records.Select((r, i) => new HistoryScanItem(r,
             i == 0 ? null : (int?)(r.PassRate - records[i - 1].PassRate))).Reverse().ToList();
+        if (pageAnchor is not null)
+            for (var i = 0; i < Scans.Count; i++)
+                if (Scans[i].Record.Id == pageAnchor) { _pageIndex = i / PageSize; break; }
         _baseline = Scans.FirstOrDefault(s => s.Record.Id == baselineId);
         _current = Scans.FirstOrDefault(s => s.Record.Id == currentId);
         if (_preset != "Manual" || _baseline is null || _current is null) ApplyPreset();
@@ -180,6 +217,7 @@ public sealed class HistoryViewModel : BaseViewModel
                      nameof(LatestDirection), nameof(LatestComparisonCaption), nameof(BestComparisonCaption), nameof(IsBelowBest),
                      nameof(BestPassRate), nameof(BestDate), nameof(ChangeSinceBest), nameof(ChangeSinceBestValue), nameof(Baseline), nameof(Current) })
                 OnPropertyChanged(name);
+            UpdatePage();
         }
         finally { _updatingScans = false; }
         UpdateComparison();

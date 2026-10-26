@@ -71,6 +71,13 @@ public sealed class HealthHistoryViewTests
             var comparisonPanel = (FrameworkElement)history.FindName("ComparisonPanel");
             var scanPanel = (FrameworkElement)history.FindName("ScanPanel");
             var scanGrid = (DataGrid)history.FindName("ScanGrid");
+            var previousPage = (Button)history.FindName("PreviousScanPage");
+            var nextPage = (Button)history.FindName("NextScanPage");
+            var pageSummary = (TextBlock)history.FindName("ScanPageSummary");
+            Assert.Equal(10, scanGrid.Items.Count);
+            Assert.Equal("Page 1 of 1", pageSummary.Text);
+            Assert.False(previousPage.IsEnabled);
+            Assert.False(nextPage.IsEnabled);
             Assert.Equal(0, Grid.GetRow(comparisonPanel));
             Assert.Equal(1, Grid.GetRow(scanPanel));
             Assert.Equal(240, scanGrid.Height);
@@ -124,10 +131,35 @@ public sealed class HealthHistoryViewTests
                 Assert.Contains(Descendants<TextBlock>(tiles), t => t.Text == vm.History.BestComparisonCaption);
             }
 
+            Assert.True(nextPage.IsEnabled);
+            var baselineBeforePaging = vm.History.Baseline;
+            var currentBeforePaging = vm.History.Current;
+            Render(root, 1080, 1300, "history-page-1-stacked");
+            var outerScroll = Descendants<ScrollViewer>(history).First();
+            var pageOffset = outerScroll.VerticalOffset;
+            nextPage.Command.Execute(null);
+            Render(root, 1080, 1300, "history-page-2-stacked");
+            Assert.Equal(pageOffset, outerScroll.VerticalOffset);
+            Assert.Equal(3, scanGrid.Items.Count);
+            Assert.Equal("Page 2 of 2", pageSummary.Text);
+            Assert.True(previousPage.IsEnabled);
+            Assert.False(nextPage.IsEnabled);
+            Assert.Same(baselineBeforePaging, vm.History.Baseline);
+            Assert.Same(currentBeforePaging, vm.History.Current);
+            Assert.Equal(13, ((ComboBox)history.FindName("BaselineSelector")).Items.Count);
+            Render(root, 1580, 1050, "history-page-2-wide");
+            previousPage.Command.Execute(null);
+            Render(root, 780, 1300, "history-page-1-narrow");
+            Assert.Equal(10, scanGrid.Items.Count);
+            Assert.Equal("Page 1 of 2", pageSummary.Text);
+
             await vm.History.LoadAsync("empty");
             Render(root, 1080, 740, "history-empty");
             Assert.False(vm.History.HasHistory);
             Assert.Equal(Visibility.Collapsed, badge.Visibility);
+            Assert.Empty(scanGrid.Items);
+            Assert.False(previousPage.IsEnabled);
+            Assert.False(nextPage.IsEnabled);
             Assert.Empty(trace.Errors);
         }
         finally

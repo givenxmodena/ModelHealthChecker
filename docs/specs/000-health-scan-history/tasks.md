@@ -4,13 +4,43 @@ doc_type: spec
 artifact_type: tasks
 status: active
 owner: Pulse maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-26
 ---
 
 # Tasks
 
 Input: requirements.md and design.md in this package. User authorized implementation.
 Durable targets: `docs/health-scan-history.md`, README, initial proposal status.
+
+- [x] T008 Align the side-by-side detail card heights.
+  - Depends on: T007
+  - Requirements: Requirement 2 AC4.
+  - Design: Equal detail-card heights (T008).
+  - Files: HistoryView.xaml, HealthHistoryViewTests.cs, docs/health-scan-history.md.
+  - Acceptance: Scan History and Compare Scans have equal heights in a shared row and independent natural heights when stacked.
+  - Validation: Existing actual WPF render/binding test at wide and stacked widths.
+  - Evidence: Existing actual WPF render/binding test passes with equal-height assertions in wide layouts with populated and empty comparison results. Stacked/minimum/wide renders inspected; zero binding errors. Durable reference and verification.md#equal-detail-card-heights updated. Two XAML alignment changes only; running Revit not replaced. T004 remains open.
+  - Evidence mode: command
+
+- [x] T007 Add pagination to Scan History.
+  - Depends on: T006
+  - Requirements: Requirement 7 AC1–AC3; Requirement 2; Requirement 3.
+  - Design: Scan history pagination (T007).
+  - Files: HistoryViewModel.cs, HistoryView.xaml, HealthHistoryTests.cs, HealthHistoryViewTests.cs, docs/health-scan-history.md.
+  - Acceptance: Ten-row pages and guarded navigation preserve full-history metrics, comparison selections and previous-scan deltas, including reload/model changes.
+  - Validation: Paging state/boundary/selection/reload tests and actual WPF pager rendering/bindings; supported Revit builds.
+  - Evidence: 45 tests pass with no failures/skips, including page boundaries, complete traversal, cross-page selections, refresh anchoring and actual WPF pager bindings and stable outer scrolling. Final-source Debug R24/R25/R26/R27 no-trial builds pass with existing warnings. Narrow/stacked/wide renders inspected with zero binding errors. Durable documentation and verification.md#scan-history-pagination updated. T004 remains open. No commit, push or running add-in replacement.
+  - Evidence mode: command
+
+- [x] T006 Refine summary tiles and accurately indicate score movement.
+  - Depends on: T005
+  - Requirements: Requirement 6 AC1–AC4; Requirement 2; CP-003.
+  - Design: Summary tile follow-up (T006).
+  - Files: HistoryView.xaml/.cs, HistoryViewModel.cs, HealthHistoryTests.cs, HealthHistoryViewTests.cs, docs/health-scan-history.md.
+  - Acceptance: Four reference-aligned tiles show dated, independently calculated previous/best deltas with truthful up/down/unchanged and zero/one-scan states.
+  - Validation: Focused tile data tests, actual WPF layout/binding/render checks and supported Revit builds.
+  - Evidence: 39 tests pass with no failures/skips, including up/down/flat, recovery below peak, tied peaks, empty/first scans and actual WPF colors/bindings. Revit 2024-2027 Debug no-trial builds pass with existing warnings. Default/minimum/wide WPF renders inspected; no Dashboard, storage or tab changes. Durable reference and verification.md#summary-tile-follow-up updated. T004 live smoke remains open; no push or deployment.
+  - Evidence mode: command
 
 - [x] T001 Persist completed scans and implement history comparison state.
   - Depends on: none

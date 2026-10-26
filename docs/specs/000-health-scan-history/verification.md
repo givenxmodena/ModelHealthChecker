@@ -4,7 +4,7 @@ doc_type: spec
 artifact_type: verification
 status: active
 owner: Pulse maintainers
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-26
 ---
 
 # Verification
@@ -174,3 +174,111 @@ The story commits form an ordered dependency chain on `b1766b7`. Four pre-existi
 local commits between `origin/main` and that base are outside this split; a normal
 push of the full branch would include those ancestors too. Push selection remains
 with the user.
+
+## Summary tile follow-up
+
+2026-10-26, T006 / Requirement 6: Refined the four History tiles to follow the
+user's reference with compact navy cards, outline icons, an inline signed badge
+and dated comparison captions. Latest direction is calculated from the previous
+chronological scan independently of the selected comparison pair and peak score.
+Below-best and at-best states have their own dated captions; zero/one-scan states
+do not show a previous-scan badge. Existing stored scores and Dashboard are unchanged.
+
+- `dotnet test tests/Modena.RevitAddin.Tests/Modena.RevitAddin.Tests.csproj -p:DisableTrialVersion=true --verbosity quiet`:
+  39 passed, zero failures/skips. Includes seven numeric scenarios (up/down/flat,
+  recovery below best, tied peak and 0/100 boundaries), zero/one-scan states,
+  notification/selection independence and actual WPF badge colors/bindings.
+- Actual WPF renders inspected at 780, 1080 and 1580 layout units, including a
+  recovery with green +10 pp and a simultaneous red -10 pp below-best value.
+  No binding errors. Default/minimum tiles fit; empty state hides the badge.
+- No-trial `dotnet build` for `Debug R24` (Legacy) and `Debug R25`, `Debug R26`,
+  `Debug R27` (modern), with `-p:Platform=x64 -p:DisableTrialVersion=true
+  -p:DeployToRevit=false`: all pass, zero errors. Existing reference conflict
+  warnings remain (8 on Legacy, 2 on each modern target).
+- Focused diff whitespace check passes. Review confirms no new dependency,
+  persistence change, tab change or Dashboard edit. Added only tile presentation,
+  derived labels, reusable delta badge backgrounds and focused tests.
+
+Changes remain uncommitted and unpushed. After the user closed Revit and requested
+a test launch, the Release R26 build with `DisableTrialVersion=true` succeeded
+(2 existing warnings, zero errors). The standalone manifest was verified to point
+to `bin/Release R26/notrial/net8.0-windows-2026/Modena.RevitAddin.dll`, and Revit
+2026 was launched. User testing is pending; this does not establish live release
+acceptance. T004 remains open. Lifecycle lint: zero errors, 2 existing advisories.
+
+## Scan history pagination
+
+2026-10-26, T007 / Requirement 7: Scan History now binds to a 10-row page slice
+with Previous/Next controls, page count and record-range text. Full Scans and
+Records remain the sources for comparison selectors, chart, summary metrics and
+chronological deltas. Paging preserves selections. Refresh follows latest on
+page 1 and retains a page containing the former first-visible record on older
+pages; model changes reset to page 1. Navigation clamps at valid boundaries.
+Table scrolling resets independently without moving the surrounding page.
+
+- `dotnet test tests/Modena.RevitAddin.Tests/Modena.RevitAddin.Tests.csproj
+  -p:DisableTrialVersion=true --verbosity quiet`: 45 passed, zero failures/skips.
+  Paging tests cover 0/1/10/11/25 records, complete traversal, guarded boundaries,
+  chronological deltas at page boundaries, cross-page selection, inserting 12
+  new scans while browsing older history, following latest, model switches and
+  empty state. WPF tests verify button enabled states, bound row/page counts,
+  all-history selectors and stable outer scroll position across navigation.
+- Actual WPF stacked/narrow/wide page renders inspected at 780/1080/1580 layout
+  units; pager labels/buttons fit and binding error collection remains empty.
+- Final-source no-trial Debug R24/R25/R26/R27 builds all pass, zero errors,
+  with the existing 8 Legacy/2-per-modern reference conflict warnings.
+- Focused diff whitespace checks pass. No storage, score calculation,
+  Dashboard, main-tab or production-dependency change. Durable reference updated.
+
+A separate user-authorized live model repair pinned six unpinned Revit links.
+Pulse's existing Refresh command was invoked; the persisted successful scan
+reported 47% with 7/15 checks passing and the link-pinning check passing. These
+model edits are in the open document; saving was not performed. This bounded
+check does not complete T004's full live release checklist. Pagination remains
+uncommitted/unpushed. On the user's subsequent build/launch request, no Revit
+instance remained open. Release R26 with `DisableTrialVersion=true` built
+successfully (2 existing warnings, zero errors), the standalone manifest was
+verified against the rebuilt DLL, and Revit 2026 was launched for pagination
+testing. User acceptance of the pager remains pending.
+
+## Equal detail-card heights
+
+2026-10-26, T008 / Requirement 2 AC4: Changed only the two detail Borders from
+Top to Stretch alignment. The existing shared auto row now gives Scan History
+and Compare Scans equal card heights; separate stacked rows retain natural
+heights. Table caps, scrolling, pagination and comparison content stay intact.
+
+The existing `HealthHistory_ActualWpfViewsRenderAndKeepBoundSelections` test
+passes with actual-height equality assertions for wide cards both with check
+rows and with no changed checks. Actual stacked/minimum/wide renders and pager
+bindings also pass with zero binding errors. Wide render inspected: aligned
+bottom edges. Command: `dotnet test tests/Modena.RevitAddin.Tests/Modena.RevitAddin.Tests.csproj
+--filter FullyQualifiedName~HealthHistory_ActualWpfViewsRenderAndKeepBoundSelections
+-p:DisableTrialVersion=true --verbosity quiet` (1 passed, zero failures/skips;
+existing reference conflict warnings). Changes remain local; the running Revit
+session has not been restarted for this adjustment. T004 remains open.
+
+## Refinement commit preparation
+
+2026-10-26: User authorized committing completed History refinements.
+
+| Scope | Commit | Isolated committed-source verification |
+|---|---|---|
+| tiles | `0bbb33a29a0cb73dbc7f8c9d04145de83b180b2f` | Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, |
+| pagination | `0bf764fd8492baa1dc85de75a24a275956f9b055` | Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, |
+| card-heights | `3720a6053acb42835c1ad07f11a41c53bf8666c9` | Passed!  - Failed:     0, Passed:    34, Skipped:     0, Total:    34, |
+
+Each exact staged tree was exported using `git archive` and passed the full
+committed test suite with `dotnet test tests/Modena.RevitAddin.Tests/Modena.RevitAddin.Tests.csproj
+-p:DisableTrialVersion=true --verbosity quiet`. This excludes unrelated working-tree
+build/packaging, authentication, family-extraction and artifact-test changes.
+The broader working-tree suite remains 45 tests. Card-height assertions were
+verified in the final snapshot. All feature source/test files match the reviewed
+working versions, and unrelated tracked/untracked edits were preserved.
+
+MHC-19 and MHC-22 were moved to Done in Jira at the user's request; the other four
+History stories were already Done. MHC-13 remains To Do: cloud detection and
+local checks exist, but APS Model Derivative extraction and authentication/fallback
+presentation remain absent, and ACC ItemId/VersionUrn getters still return null.
+MHC-24 and T004 remain outstanding for full release QA. No push is authorized by
+this commit-preparation request.

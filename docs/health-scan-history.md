@@ -21,11 +21,29 @@ change since best. Changes in pass rate use percentage points (pp), rather than
 relative percentages. Best means highest score, breaking ties in favor of the
 latest scan. A lower score than best is not labeled a declining trend.
 
+Summary tiles follow the compact reference layout with outline icons and dated
+captions. Latest pass rate has a green upward badge for improvement over the
+previous chronological scan, a red downward badge for a drop, or neutral
+"No change" text. The caption identifies that previous scan. The first scan has
+no comparison badge. Change since best is a separate signed pp value with an
+at-best/below-best date caption; a model recovering toward its peak can show
+green latest movement and a red below-best value simultaneously. Selecting a
+different comparison pair does not change these summary metrics.
+
 The trend chart uses actual elapsed time and a fixed 0–100% scale. Hover for scan
 details. Amber B and blue C markers match baseline/current selection buttons in
 the scan table; selecting the same scan for both shows one B/C marker. The table
 is newest-first and displays local dates and times,
 passed/total checks, warnings, element counts and change from the previous scan.
+
+Scan History displays 10 scans per page with Previous/Next controls, page count
+and a visible range such as "11–20 of 296 scans". The first page follows new
+scans on refresh. When browsing older pages, refresh keeps the previously
+first-visible scan on a page where possible, so new scans do not jump you back
+to the latest page. Changing models resets paging. Empty/first/last pages disable
+unavailable navigation. Page changes preserve comparison selections and all
+chart/summary data; comparison selectors always include the full history.
+Previous-scan deltas remain chronological across page boundaries.
 
 Comparisons default to previous → latest. Presets select previous/latest or
 best/latest; B/C buttons and selectors permit any pair, including the same scan
@@ -49,7 +67,8 @@ evaluated in only one scan are **Not comparable**, not assumed passing. The
 coverage summary accounts for all recorded evaluated checks.
 
 At normal/narrow widths, comparison appears immediately below the chart and before
-the shorter scan table. Wider windows keep the panels side by side. The chart is
+the shorter scan table. Wider windows keep the panels side by side with matching
+card heights and aligned bottom edges. Stacked cards size independently. The chart is
 also shorter in the stacked layout, and Reload history lives in its heading.
 Empty status/warning text collapses. Scan tables scroll and virtualize rows;
 chart geometry retains pixel-bucket extrema

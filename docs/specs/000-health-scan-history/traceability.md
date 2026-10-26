@@ -4,7 +4,7 @@ doc_type: spec
 artifact_type: traceability
 status: active
 owner: Pulse maintainers
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-26
 ---
 
 # Traceability Matrix
@@ -13,6 +13,9 @@ last_reviewed: 2026-10-21
 
 | Task ID | Requirements | Acceptance Criteria | Design Sections | Change Impact | Verification | Durable Targets | Open Decisions |
 |---|---|---|---|---|---|---|---|
+| T008 | Requirement 2 | R2 AC4 | design.md#equal-detail-card-heights-t008 | none | Actual WPF card-height assertions | docs/health-scan-history.md | none |
+| T007 | Requirement 7, Requirement 2, Requirement 3 | R7 AC1–AC3 | design.md#scan-history-pagination-t007 | none | Paging and WPF binding tests | docs/health-scan-history.md | none |
+| T006 | Requirement 6, Requirement 2 | R6 AC1–AC4 | design.md#summary-tile-follow-up-t006 | none | Focused tile tests and WPF renders | docs/health-scan-history.md | none |
 | T001 | Requirement 1, Requirement 3, Requirement 4 | R1 AC1–AC3; R3 AC1–AC3; R4 AC1–AC2 | design.md#components-and-data-flow; design.md#errors-compatibility-and-trust | none | Storage, comparison and orchestration tests | docs/health-scan-history.md | none |
 | T002 | Requirement 2, Requirement 3, Requirement 4 | R2 AC1–AC3; R3 AC1–AC2; R4 AC1–AC2 | design.md#components-and-data-flow | none | Four builds, actual WPF renders, dashboard subtree comparison | docs/health-scan-history.md | none |
 | T003 | Requirement 1, Requirement 2, Requirement 3, Requirement 4 | All acceptance criteria | design.md#verification-and-promotion | none | verification.md | docs/health-scan-history.md, README.md | none |
@@ -36,6 +39,8 @@ last_reviewed: 2026-10-21
 | Requirement 3 | must-have | AC1, AC2, AC3 | design.md#components-and-data-flow | T001, T002, T003 | verification.md#requirement-coverage | docs/health-scan-history.md | complete | T004 live release smoke |
 | Requirement 4 | must-have | AC1, AC2 | design.md#errors-compatibility-and-trust | T001, T002, T003 | verification.md#requirement-coverage | docs/health-scan-history.md | complete | T004 live release smoke |
 | Requirement 5 | must-have | AC1, AC2, AC3 | design.md#comparison-usability-follow-up-t005 | T005 | verification.md#comparison-usability-follow-up | docs/health-scan-history.md | complete | T004 live release smoke |
+| Requirement 6 | must-have | AC1, AC2, AC3, AC4 | design.md#summary-tile-follow-up-t006 | T006 | verification.md#summary-tile-follow-up | docs/health-scan-history.md | complete | T004 live release smoke |
+| Requirement 7 | must-have | AC1, AC2, AC3 | design.md#scan-history-pagination-t007 | T007 | verification.md#scan-history-pagination | docs/health-scan-history.md | complete | T004 live release smoke |
 
 ## Design To Implementation Matrix
 
@@ -43,6 +48,8 @@ last_reviewed: 2026-10-21
 |---|---|---|---|---|---|---|
 | Components and data flow | Requirement 1, Requirement 2, Requirement 3 | T001, T002 | HealthScanRecord, HealthHistoryService, HistoryViewModel, HistoryView, TrendChart, ModelHealthWindow | verification.md | complete | none |
 | Errors, compatibility and trust | Requirement 1, Requirement 4 | T001, T003 | HealthHistoryService, ModelHealthViewModel | verification.md | complete | none |
+| Summary tile follow-up (T006) | Requirement 6, Requirement 2 | T006 | HistoryView, HistoryViewModel, DeltaBrushConverter | verification.md#summary-tile-follow-up | complete | T004 live release smoke |
+| Scan history pagination (T007) | Requirement 7, Requirement 2, Requirement 3 | T007 | HistoryViewModel, HistoryView | verification.md#scan-history-pagination | complete | T004 live release smoke |
 
 ## Open Decision Impact
 

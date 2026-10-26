@@ -4,7 +4,7 @@ doc_type: spec
 artifact_type: design
 status: accepted
 owner: Pulse maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-26
 ---
 
 # Technical Design
@@ -78,6 +78,38 @@ memory still grows with history (accepted v1 limit).
 No blocking implementation decisions remain. Live Revit release checks are T004.
 
 ## Verification and promotion
+
+### Equal detail-card heights (T008)
+
+Stretch both detail Borders within their existing auto-sized Grid row. In the
+wide layout the row takes the larger desired height and both card edges align;
+in the stacked layout the separate auto rows retain independent natural heights.
+Keep table height caps, scrolling, pagination and comparison controls unchanged.
+
+### Scan history pagination (T007)
+
+Keep all chronological Records and newest-first Scans as the source for chart,
+summaries, deltas and selectors. Expose a 10-item PageScans slice exclusively to
+the scan DataGrid, with guarded Previous/Next RelayCommands, a page count and a
+visible record-range caption. Rebuild the slice only after navigation or load.
+Page changes do not mutate selection. After reload, page 1 follows latest;
+older pages locate their previous first-visible record by ID, falling back to a
+clamped page if it disappeared. Reset paging on model changes and empty history.
+Keep the current bounded table height/scrolling and existing HistoryButton style.
+Verify 0/1/10/11/25 scans, boundary navigation, cross-page selection, deltas at page
+boundaries, refresh anchoring and actual WPF pager bindings.
+
+### Summary tile follow-up (T006)
+
+Keep the four-card UniformGrid and the current two-tab shell. Add local compact
+navy card styles and outline WPF paths matching the supplied tile reference.
+Separate latest delta badge text from its previous-scan date caption. Reuse the
+signed-delta color converter for badge foreground/background and direction icons;
+never infer recent movement from the all-time peak. Show the signed distance to
+best with an at-best/below-best dated caption. Preserve the stored integer score
+contract and notify all derived tile properties after history loads. Validate
+up/down/unchanged, zero/one scans, tied peaks and comparison independence, plus
+actual WPF rendering at minimum/default/wide widths.
 
 ### Comparison usability follow-up (T005)
 

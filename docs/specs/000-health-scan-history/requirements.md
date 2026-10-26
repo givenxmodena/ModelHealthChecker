@@ -4,7 +4,7 @@ doc_type: spec
 artifact_type: requirements
 status: accepted
 owner: Pulse maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-26
 ---
 
 # Requirements
@@ -67,6 +67,9 @@ Users retain their familiar dashboard.
   nearest-point hover details and matching baseline/current markers. Scan rows show
   local date/time, rate, passed/total, warnings, elements and previous delta.
 
+4. WHEN Scan History and Compare Scans share a row, THE SYSTEM SHALL stretch
+   both cards to the same height. Stacked cards SHALL retain independent natural heights.
+
 ### Requirement 3: Explain comparisons
 
 **Priority:** must-have
@@ -113,6 +116,37 @@ User approved this follow-up after testing the initial no-trial build.
 3. Newly failing/regressed checks appear before resolved/improved checks. Changed,
    Worsened, Improved and All filters work independently of scan selection; a concise
    factual sentence explains changes, with honest no-change/unknown/empty states.
+
+### Requirement 6: Match the summary tile reference and clarify score movement
+
+**Priority:** must-have
+
+#### Acceptance Criteria
+
+1. History SHALL show four compact tiles with muted labels, outline icons and
+   supporting dates, following the supplied reference without adding main tabs.
+2. The latest score SHALL show a green upward badge for a positive change from
+   the previous chronological scan, a red downward badge for a negative change,
+   and neutral no-change text for equal scores. Deltas use percentage points.
+3. Change since best SHALL use the highest recorded score (most recent tied
+   scan), with a dated below-best/at-best caption independently of latest movement.
+4. Zero/one-scan states SHALL not invent a previous comparison. Tiles SHALL
+   update after reloading scans, independently of the selected comparison pair.
+
+### Requirement 7: Page through scan history
+
+**Priority:** must-have
+
+#### Acceptance Criteria
+
+1. The Scan History table SHALL show 10 scans per page, newest first, with
+   Previous/Next controls and a visible page/range/total indicator.
+2. Paging SHALL preserve the full chart, summary metrics, comparison selectors,
+   baseline/current selections and chronological previous-scan deltas.
+3. On reload, a user browsing older pages SHALL retain a page containing the
+   previously first-visible scan where possible; page 1 SHALL follow latest scans. Changing
+   models SHALL reset to page 1. Empty/first/last pages SHALL disable unavailable
+   navigation and show truthful totals.
 
 ## Correctness Properties
 

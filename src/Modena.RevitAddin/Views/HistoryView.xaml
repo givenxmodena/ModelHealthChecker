@@ -286,7 +286,7 @@
             <Grid x:Name="DetailGrid">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition x:Name="ComparisonColumn" Width="*"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <Border x:Name="ScanPanel" Style="{DynamicResource DashboardCard}" Margin="0,0,8,0" VerticalAlignment="Top">
+                <Border x:Name="ScanPanel" Style="{DynamicResource DashboardCard}" Margin="0,0,8,0" VerticalAlignment="Stretch">
                     <StackPanel>
                         <TextBlock Text="SCAN HISTORY" Style="{StaticResource HistoryLabel}"/>
                         <TextBlock Text="Choose B for baseline or C for current." Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,0,0,12"/>
@@ -320,7 +320,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border x:Name="ComparisonPanel" Grid.Column="1" Style="{DynamicResource DashboardCard}" Margin="8,0,0,0" VerticalAlignment="Top">
+                <Border x:Name="ComparisonPanel" Grid.Column="1" Style="{DynamicResource DashboardCard}" Margin="8,0,0,0" VerticalAlignment="Stretch">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
                             <WrapPanel DockPanel.Dock="Right" IsEnabled="{Binding CanCompare}" Margin="12,0,0,0">

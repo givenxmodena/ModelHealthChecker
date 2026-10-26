@@ -99,6 +99,7 @@ public sealed class HealthHistoryViewTests
             Render(root, 1580, 1300, "history-full");
             Assert.Equal(0, Grid.GetRow((UIElement)history.FindName("ComparisonPanel")));
             Assert.Equal(0, Grid.GetRow(scanPanel));
+            Assert.Equal(scanPanel.ActualHeight, comparisonPanel.ActualHeight, 1);
             Assert.Equal(355, scanGrid.Height);
             var selector = (ComboBox)history.FindName("BaselineSelector");
             Assert.Contains(Descendants<TextBlock>(selector), t => t.Text == vm.History.Baseline!.Label);
@@ -148,6 +149,7 @@ public sealed class HealthHistoryViewTests
             Assert.Same(currentBeforePaging, vm.History.Current);
             Assert.Equal(13, ((ComboBox)history.FindName("BaselineSelector")).Items.Count);
             Render(root, 1580, 1050, "history-page-2-wide");
+            Assert.Equal(scanPanel.ActualHeight, comparisonPanel.ActualHeight, 1);
             previousPage.Command.Execute(null);
             Render(root, 780, 1300, "history-page-1-narrow");
             Assert.Equal(10, scanGrid.Items.Count);

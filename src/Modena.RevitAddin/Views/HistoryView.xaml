@@ -6,6 +6,35 @@
              Foreground="{DynamicResource TextPrimary}">
     <UserControl.Resources>
         <local:DeltaBrushConverter x:Key="DeltaBrush"/>
+        <Style x:Key="SummaryCard" TargetType="Border">
+            <Setter Property="Background" Value="#101827"/>
+            <Setter Property="BorderBrush" Value="#23344c"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="16,12"/>
+        </Style>
+        <Style x:Key="SummaryLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#90a4c8"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,22,5"/>
+        </Style>
+        <Style x:Key="SummaryCaption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,5,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="SummaryIcon" TargetType="Path">
+            <Setter Property="Stroke" Value="#6d89ae"/>
+            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
         <Style x:Key="HistoryLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="FontSize" Value="11"/>
@@ -180,27 +209,63 @@
         <StackPanel Margin="0,16,0,0">
             <TextBlock Text="{Binding Status}" Style="{StaticResource HistoryMessage}"/>
             <TextBlock Text="{Binding SaveWarning}" Style="{StaticResource HistoryMessage}" Foreground="{DynamicResource AccentAmber}"/>
-            <UniformGrid Columns="4" Margin="0,0,0,16">
-                <Border Style="{DynamicResource DashboardCard}" Margin="0,0,6,0"><StackPanel>
-                    <TextBlock Text="SCANS LOGGED" Style="{StaticResource HistoryLabel}"/>
-                    <TextBlock Text="{Binding ScanCount}" FontSize="24" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding Since}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0"/>
-                </StackPanel></Border>
-                <Border Style="{DynamicResource DashboardCard}" Margin="3,0,3,0"><StackPanel>
-                    <TextBlock Text="LATEST PASS RATE" Style="{StaticResource HistoryLabel}"/>
-                    <TextBlock Text="{Binding LatestPassRate}" FontSize="24" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding LatestDelta}" Foreground="{Binding LatestChange, Converter={StaticResource DeltaBrush}}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                </StackPanel></Border>
-                <Border Style="{DynamicResource DashboardCard}" Margin="3,0,3,0"><StackPanel>
-                    <TextBlock Text="BEST SCAN" Style="{StaticResource HistoryLabel}"/>
-                    <TextBlock Text="{Binding BestPassRate}" FontSize="24" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding BestDate}" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                </StackPanel></Border>
-                <Border Style="{DynamicResource DashboardCard}" Margin="6,0,0,0"><StackPanel>
-                    <TextBlock Text="CHANGE SINCE BEST" Style="{StaticResource HistoryLabel}"/>
-                    <TextBlock Text="{Binding ChangeSinceBest}" Foreground="{Binding ChangeSinceBestValue, Converter={StaticResource DeltaBrush}}" FontSize="24" FontWeight="Bold"/>
-                    <TextBlock Text="Percentage points" Foreground="{DynamicResource TextSecondary}" FontSize="11" Margin="0,6,0,0"/>
-                </StackPanel></Border>
+            <UniformGrid x:Name="SummaryTiles" Columns="4" Margin="0,0,0,16">
+                <Border Style="{StaticResource SummaryCard}" Margin="0,0,6,0"><Grid>
+                    <Path Style="{StaticResource SummaryIcon}" Data="M 4,3 L 2,3 2,16 14,16 14,3 12,3 M 5,1 L 11,1 11,5 5,5 Z"/>
+                    <StackPanel>
+                        <TextBlock Text="SCANS LOGGED" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock Text="{Binding ScanCount}" FontSize="24" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Since}" Style="{StaticResource SummaryCaption}"/>
+                    </StackPanel>
+                </Grid></Border>
+                <Border Style="{StaticResource SummaryCard}" Margin="3,0,3,0"><Grid>
+                    <Path>
+                        <Path.Style><Style TargetType="Path" BasedOn="{StaticResource SummaryIcon}">
+                            <Setter Property="Data" Value="M 1,8 L 15,8"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LatestDirection}" Value="1"><Setter Property="Data" Value="M 1,13 L 6,7 10,10 15,3 M 10,3 L 15,3 15,8"/></DataTrigger>
+                                <DataTrigger Binding="{Binding LatestDirection}" Value="-1"><Setter Property="Data" Value="M 1,3 L 6,9 10,6 15,13 M 10,13 L 15,13 15,8"/></DataTrigger>
+                            </Style.Triggers>
+                        </Style></Path.Style>
+                    </Path>
+                    <StackPanel>
+                        <TextBlock Text="LATEST PASS RATE" Style="{StaticResource SummaryLabel}"/>
+                        <WrapPanel>
+                            <TextBlock Text="{Binding LatestPassRate}" FontSize="24" FontWeight="Bold" Margin="0,0,8,0"/>
+                            <Border x:Name="LatestDeltaBadge" CornerRadius="4" Padding="6,3" VerticalAlignment="Center"
+                                    Background="{Binding LatestChange, Converter={StaticResource DeltaBrush}, ConverterParameter=Background}">
+                                <Border.Style><Style TargetType="Border"><Style.Triggers>
+                                    <DataTrigger Binding="{Binding CanCompare}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers></Style></Border.Style>
+                                <TextBlock Text="{Binding LatestDelta}" Foreground="{Binding LatestChange, Converter={StaticResource DeltaBrush}}" FontSize="10" FontWeight="SemiBold"/>
+                            </Border>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding LatestComparisonCaption}" Style="{StaticResource SummaryCaption}"/>
+                    </StackPanel>
+                </Grid></Border>
+                <Border Style="{StaticResource SummaryCard}" Margin="3,0,3,0"><Grid>
+                    <Path Style="{StaticResource SummaryIcon}" Data="M 8,1 L 10,6 16,6 11,10 13,16 8,12 3,16 5,10 0,6 6,6 Z"/>
+                    <StackPanel>
+                        <TextBlock Text="BEST SCAN" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock Text="{Binding BestPassRate}" FontSize="24" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding BestDate}" Style="{StaticResource SummaryCaption}"/>
+                    </StackPanel>
+                </Grid></Border>
+                <Border Style="{StaticResource SummaryCard}" Margin="6,0,0,0"><Grid>
+                    <Path>
+                        <Path.Style><Style TargetType="Path" BasedOn="{StaticResource SummaryIcon}">
+                            <Setter Property="Data" Value="M 1,8 L 15,8"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBelowBest}" Value="True"><Setter Property="Data" Value="M 1,3 L 6,9 10,6 15,13 M 10,13 L 15,13 15,8"/></DataTrigger>
+                            </Style.Triggers>
+                        </Style></Path.Style>
+                    </Path>
+                    <StackPanel>
+                        <TextBlock Text="CHANGE SINCE BEST" Style="{StaticResource SummaryLabel}"/>
+                        <TextBlock Text="{Binding ChangeSinceBest}" Foreground="{Binding ChangeSinceBestValue, Converter={StaticResource DeltaBrush}}" FontSize="24" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding BestComparisonCaption}" Style="{StaticResource SummaryCaption}"/>
+                    </StackPanel>
+                </Grid></Border>
             </UniformGrid>
 
             <Border Style="{DynamicResource DashboardCard}" Margin="0,0,0,16">

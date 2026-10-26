@@ -49,12 +49,20 @@ public sealed class HistoryViewModel : BaseViewModel
     public string Since => HasHistory ? "since " + Records[0].Timestamp.ToLocalTime().ToString("d MMM yyyy") : "No scans yet";
     public string LatestPassRate => HasHistory ? Records[Records.Count - 1].PassRate + "%" : "—";
     public int? LatestChange => Records.Count > 1 ? Records[Records.Count - 1].PassRate - Records[Records.Count - 2].PassRate : (int?)null;
-    public string LatestDelta => LatestChange.HasValue ? FormatDelta(LatestChange.Value) + " vs previous" : HasHistory ? "First scan" : "No scans yet";
+    public int LatestDirection => LatestChange.HasValue ? Math.Sign(LatestChange.Value) : 0;
+    public string LatestDelta => LatestChange.HasValue
+        ? (LatestChange > 0 ? "▲ " : LatestChange < 0 ? "▼ " : "") + FormatDelta(LatestChange.Value) : "—";
+    public string LatestComparisonCaption => CanCompare
+        ? $"vs previous scan ({Records[Records.Count - 2].Timestamp.ToLocalTime():d MMM})"
+        : HasHistory ? "First scan" : "No scans yet";
     private HealthScanRecord? Best => _best;
     public string BestPassRate => Best is { } best ? best.PassRate + "%" : "—";
-    public string BestDate => Best?.Timestamp.ToLocalTime().ToString("d MMM yyyy · HH:mm") ?? "No scans yet";
+    public string BestDate => Best?.Timestamp.ToLocalTime().ToString("d MMM yyyy") ?? "No scans yet";
     public int? ChangeSinceBestValue => HasHistory ? Records[Records.Count - 1].PassRate - Best!.PassRate : (int?)null;
-    public string ChangeSinceBest => ChangeSinceBestValue.HasValue ? FormatDelta(ChangeSinceBestValue.Value) : "—";
+    public string ChangeSinceBest => ChangeSinceBestValue.HasValue ? $"{ChangeSinceBestValue.Value:+0;-0;0} pp" : "—";
+    public bool IsBelowBest => ChangeSinceBestValue < 0;
+    public string BestComparisonCaption => Best is null ? "No scans yet"
+        : $"{(IsBelowBest ? "below" : "at")} {Best.Timestamp.ToLocalTime():d MMM} best";
     public int? ComparisonChange => Baseline is null || Current is null ? (int?)null : Current.Record.PassRate - Baseline.Record.PassRate;
     public string ComparisonDelta => Baseline is null || Current is null ? "Select two scans" : FormatDelta(Current.Record.PassRate - Baseline.Record.PassRate);
     public string ComparisonRate => Baseline is null || Current is null ? "—" : $"{Baseline.Record.PassRate}% → {Current.Record.PassRate}%";
@@ -126,7 +134,6 @@ public sealed class HistoryViewModel : BaseViewModel
     public RelayCommand ComparePreviousCommand { get; }
     public RelayCommand CompareBestCommand { get; }
     public AsyncRelayCommand ReloadCommand { get; }
-
     public async Task LoadAsync(string modelKey)
     {
         if (string.IsNullOrWhiteSpace(modelKey)) return;
@@ -170,6 +177,7 @@ public sealed class HistoryViewModel : BaseViewModel
         {
             foreach (var name in new[] { nameof(Records), nameof(Scans), nameof(HasHistory), nameof(CanCompare),
                      nameof(ScanCount), nameof(Since), nameof(LatestPassRate), nameof(LatestDelta), nameof(LatestChange),
+                     nameof(LatestDirection), nameof(LatestComparisonCaption), nameof(BestComparisonCaption), nameof(IsBelowBest),
                      nameof(BestPassRate), nameof(BestDate), nameof(ChangeSinceBest), nameof(ChangeSinceBestValue), nameof(Baseline), nameof(Current) })
                 OnPropertyChanged(name);
         }

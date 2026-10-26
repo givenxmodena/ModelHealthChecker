@@ -61,6 +61,13 @@ public sealed class HealthHistoryViewTests
             tabs.SelectedIndex = 1;
             var history = (HistoryView)((TabItem)tabs.Items[1]).Content;
             Render(root, 1080, 1050, "history-default");
+            var tiles = (Panel)history.FindName("SummaryTiles");
+            Assert.Equal(4, tiles.Children.Count);
+            var badge = (Border)history.FindName("LatestDeltaBadge");
+            var badgeText = Assert.Single(Descendants<TextBlock>(badge));
+            Assert.Equal("▼ -13 pp", badgeText.Text);
+            Assert.Equal(Color.FromRgb(0xf4, 0x3f, 0x5e), ((SolidColorBrush)badgeText.Foreground).Color);
+            Assert.Contains(Descendants<TextBlock>(tiles), t => t.Text == "-20 pp");
             var comparisonPanel = (FrameworkElement)history.FindName("ComparisonPanel");
             var scanPanel = (FrameworkElement)history.FindName("ScanPanel");
             var scanGrid = (DataGrid)history.FindName("ScanGrid");
@@ -102,9 +109,25 @@ public sealed class HealthHistoryViewTests
             Render(root, 1080, 1050, "history-no-worsened");
             Assert.Contains(Descendants<TextBlock>(comparisonPanel), t => t.Text == "No checks worsened between these scans." && t.Visibility == Visibility.Visible && t.ActualHeight > 0);
 
+            foreach (var rate in new[] { 50, 50, 80 })
+            {
+                service.Append("model", new HealthScanRecord
+                {
+                    ModelKey = "model", Timestamp = new DateTime(2026, 10, 20, 8, 0, 0, DateTimeKind.Utc).AddMinutes(vm.History.Records.Count),
+                    PassRate = rate
+                });
+                await vm.History.LoadAsync("model");
+                Render(root, 1080, 740, "history-tiles-" + vm.History.Records.Count);
+                Assert.Equal(vm.History.LatestDelta, badgeText.Text);
+                var expectedColor = vm.History.LatestChange > 0 ? Color.FromRgb(0x10, 0xb9, 0x81) : Color.FromRgb(0x9c, 0xa3, 0xaf);
+                Assert.Equal(expectedColor, ((SolidColorBrush)badgeText.Foreground).Color);
+                Assert.Contains(Descendants<TextBlock>(tiles), t => t.Text == vm.History.BestComparisonCaption);
+            }
+
             await vm.History.LoadAsync("empty");
             Render(root, 1080, 740, "history-empty");
             Assert.False(vm.History.HasHistory);
+            Assert.Equal(Visibility.Collapsed, badge.Visibility);
             Assert.Empty(trace.Errors);
         }
         finally

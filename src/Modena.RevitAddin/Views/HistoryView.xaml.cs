@@ -30,16 +30,27 @@ public sealed class DeltaBrushConverter : IValueConverter
     private static readonly Brush Improved = new SolidColorBrush(Color.FromRgb(0x10, 0xb9, 0x81));
     private static readonly Brush Regressed = new SolidColorBrush(Color.FromRgb(0xf4, 0x3f, 0x5e));
     private static readonly Brush Neutral = new SolidColorBrush(Color.FromRgb(0x9c, 0xa3, 0xaf));
+    private static readonly Brush ImprovedBackground = new SolidColorBrush(Color.FromArgb(0x26, 0x10, 0xb9, 0x81));
+    private static readonly Brush RegressedBackground = new SolidColorBrush(Color.FromArgb(0x26, 0xf4, 0x3f, 0x5e));
+    private static readonly Brush NeutralBackground = new SolidColorBrush(Color.FromArgb(0x18, 0x9c, 0xa3, 0xaf));
 
     static DeltaBrushConverter()
     {
         Improved.Freeze();
         Regressed.Freeze();
         Neutral.Freeze();
+        ImprovedBackground.Freeze();
+        RegressedBackground.Freeze();
+        NeutralBackground.Freeze();
     }
 
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-        value is int delta && delta != 0 ? delta > 0 ? Improved : Regressed : Neutral;
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var direction = value is int delta ? Math.Sign(delta) : 0;
+        return parameter as string == "Background"
+            ? direction > 0 ? ImprovedBackground : direction < 0 ? RegressedBackground : NeutralBackground
+            : direction > 0 ? Improved : direction < 0 ? Regressed : Neutral;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }

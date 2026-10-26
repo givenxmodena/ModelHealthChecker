@@ -295,6 +295,72 @@ public sealed class HealthHistoryTests : IDisposable
         finally { if (File.Exists(cachePath)) File.Delete(cachePath); }
     }
 
+    [Theory]
+    [InlineData(60, 40, 50, 10, -10)]
+    [InlineData(60, 53, 40, -13, -20)]
+    [InlineData(40, 50, 60, 10, 0)]
+    [InlineData(60, 40, 40, 0, -20)]
+    [InlineData(60, 40, 60, 20, 0)]
+    [InlineData(100, 100, 0, -100, -100)]
+    [InlineData(0, 0, 100, 100, 0)]
+    public async Task HealthHistory_TilesTrackLatestMovementSeparatelyFromPeak(
+        int firstRate, int previousRate, int latestRate, int movement, int belowBest)
+    {
+        var service = Service;
+        var start = new DateTime(2026, 7, 18, 8, 0, 0, DateTimeKind.Utc);
+        var records = new[] { Scan(firstRate), Scan(previousRate), Scan(latestRate) };
+        for (var i = 0; i < records.Length; i++) records[i].Timestamp = start.AddDays(i * 5);
+        // Persistence order must not determine which score is latest.
+        foreach (var record in records.Reverse()) Assert.True(service.Append("model", record));
+        var vm = new HistoryViewModel(service);
+        var notified = new List<string?>();
+        vm.PropertyChanged += (_, e) => notified.Add(e.PropertyName);
+        await vm.LoadAsync("model");
+
+        Assert.Equal(latestRate + "%", vm.LatestPassRate);
+        Assert.Equal(movement, vm.LatestChange);
+        Assert.Equal(Math.Sign(movement), vm.LatestDirection);
+        Assert.Equal((movement > 0 ? "▲ " : movement < 0 ? "▼ " : "") + HistoryViewModel.FormatDelta(movement), vm.LatestDelta);
+        Assert.Equal($"vs previous scan ({records[1].Timestamp.ToLocalTime():d MMM})", vm.LatestComparisonCaption);
+        Assert.Equal(belowBest, vm.ChangeSinceBestValue);
+        Assert.Equal($"{belowBest:+0;-0;0} pp", vm.ChangeSinceBest);
+        Assert.Equal(belowBest < 0, vm.IsBelowBest);
+        var best = records.OrderByDescending(r => r.PassRate).ThenByDescending(r => r.Timestamp).First();
+        Assert.Equal(best.Timestamp.ToLocalTime().ToString("d MMM yyyy"), vm.BestDate);
+        Assert.Equal($"{(belowBest < 0 ? "below" : "at")} {best.Timestamp.ToLocalTime():d MMM} best", vm.BestComparisonCaption);
+        Assert.Contains(nameof(vm.LatestComparisonCaption), notified);
+        Assert.Contains(nameof(vm.LatestDirection), notified);
+        Assert.Contains(nameof(vm.BestComparisonCaption), notified);
+
+        vm.Baseline = vm.Scans.Last();
+        vm.Current = vm.Baseline;
+        Assert.Equal(movement, vm.LatestChange);
+        Assert.Equal(belowBest, vm.ChangeSinceBestValue);
+    }
+
+    [Fact]
+    public async Task HealthHistory_TilesDoNotInventPreviousScanForEmptyOrFirstScan()
+    {
+        var service = Service;
+        var vm = new HistoryViewModel(service);
+        await vm.LoadAsync("model");
+        Assert.Equal("—", vm.LatestPassRate);
+        Assert.Null(vm.LatestChange);
+        Assert.Equal("—", vm.LatestDelta);
+        Assert.Equal("No scans yet", vm.LatestComparisonCaption);
+        Assert.Equal("No scans yet", vm.BestComparisonCaption);
+        Assert.Equal("—", vm.ChangeSinceBest);
+        Assert.False(vm.IsBelowBest);
+        Assert.True(service.Append("model", Scan(40)));
+        await vm.LoadAsync("model");
+        Assert.Equal("40%", vm.LatestPassRate);
+        Assert.Null(vm.LatestChange);
+        Assert.Equal(0, vm.LatestDirection);
+        Assert.Equal("First scan", vm.LatestComparisonCaption);
+        Assert.Equal("0 pp", vm.ChangeSinceBest);
+        Assert.False(vm.CanCompare);
+    }
+
     internal static Task OnDispatcher(Func<Task> action)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

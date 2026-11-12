@@ -59,8 +59,8 @@ public class RevitContextService
         if (_context.IsCloudModel)
             return ModelSource.ACCCloud;
 
-        if (!string.IsNullOrEmpty(_context.CentralModelPath)
-            && _context.CentralModelPath != _context.ModelPath)
+        if ((_context.CentralModelPath ?? "").StartsWith("RSN://", StringComparison.OrdinalIgnoreCase)
+            || (_context.ModelPath ?? "").StartsWith("RSN://", StringComparison.OrdinalIgnoreCase))
             return ModelSource.RevitServer;
 
         return ModelSource.Local;

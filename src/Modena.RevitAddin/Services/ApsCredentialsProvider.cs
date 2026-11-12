@@ -13,7 +13,7 @@ namespace Modena.RevitAddin.Services;
 /// Config file search order (first match wins):
 ///   1. aps.json next to the add-in DLL
 ///   2. modena-config.json next to the add-in DLL  (reads ApsClientId / ApsClientSecret keys)
-///   3. %AppData%\Autodesk\Revit\Addins\{2024|2025|2026}\aps.json
+///   3. %AppData%\Autodesk\Revit\Addins\{2024|2025|2026|2027}\aps.json
 ///   4. %AppData%\...\ModenaSuite\Modules\ModelHealthChecker\aps.json
 ///
 /// aps.json supports plain keys (APS_CLIENT_ID / APS_CLIENT_SECRET) and
@@ -74,7 +74,7 @@ public static class ApsCredentialsProvider
         yield return Path.Combine(baseDir, "modena-config.json");
 
         // 2) Revit Addins folders for supported versions
-        foreach (var ver in new[] { "2024", "2025", "2026" })
+        foreach (var ver in new[] { "2024", "2025", "2026", "2027" })
         {
             yield return Path.Combine(addinsRoot, ver, "aps.json");
             yield return Path.Combine(addinsRoot, ver, "ModelHealthChecker", "aps.json");

@@ -22,6 +22,15 @@ public class ModelHealthViewModel : BaseViewModel
     private readonly RefreshTimerService _timer;
     private readonly DashboardCacheService _cache;
     private readonly HealthHistoryService _historyService;
+    private readonly ICloudModelService? _cloudService;
+    private readonly IPulseAccessPolicy? _accessPolicy;
+    private bool _isAuthorizing;
+    private bool _closed;
+    private bool _accessDenied;
+    public IPulseAccessPolicy? AccessPolicy => _accessPolicy;
+    private CloudModelInfo? _cloudInfo;
+    private bool _cloudInitialized;
+    private string _cloudStatus = string.Empty;
     private string _historyKey = string.Empty;
     private readonly Dispatcher _dispatcher;
     private CancellationTokenSource? _cts;
@@ -50,6 +59,12 @@ public class ModelHealthViewModel : BaseViewModel
 
     public ModelIdentity ModelIdentity { get; }
     public HistoryViewModel History { get; }
+    public bool IsCloudModel => ModelIdentity.IsCloudModel;
+    public string ModelSourceText => IsCloudModel ? "ACC Cloud"
+        : ModelIdentity.ModelSource == Modena.Shared.Enums.ModelSource.RevitServer ? "Revit Server" : "Local";
+    public string CloudStatus { get => _cloudStatus; private set => SetProperty(ref _cloudStatus, value); }
+    public string CloudIdentityText => _cloudInfo is null ? ""
+        : $"ACC Item ID: {_cloudInfo.ItemId}\nPublished Version URN: {_cloudInfo.VersionUrn}";
 
     /// <summary>True when the loaded config has validation warnings to surface in the UI.</summary>
     public bool   HasConfigWarning  { get; }
@@ -243,7 +258,9 @@ public class ModelHealthViewModel : BaseViewModel
         PluginConfig config,
         Dispatcher? dispatcher = null,
         RefreshTimerService? timer = null,
-        HealthHistoryService? historyService = null)
+        HealthHistoryService? historyService = null,
+        ICloudModelService? cloudService = null,
+        IPulseAccessPolicy? accessPolicy = null)
     {
         ModelIdentity    = modelIdentity   ?? throw new ArgumentNullException(nameof(modelIdentity));
         _extractor       = extractor       ?? throw new ArgumentNullException(nameof(extractor));
@@ -253,6 +270,11 @@ public class ModelHealthViewModel : BaseViewModel
         _timer           = timer           ?? new RefreshTimerService();
         _cache           = new DashboardCacheService();
         _historyService  = historyService ?? new HealthHistoryService();
+        _cloudService    = cloudService;
+        _accessPolicy = accessPolicy;
+#if TRIAL_VERSION
+        _accessPolicy ??= PulseAccessPolicyFactory.Create();
+#endif
         History          = new HistoryViewModel(_historyService);
 
         // Pre-populate from the document context so the header shows the model name
@@ -309,7 +331,7 @@ public class ModelHealthViewModel : BaseViewModel
         }
 
         await historyLoad;
-        if (!_timerStarted && _config.AutoRefreshEnabled && HasData)
+        if (!_closed && !_accessDenied && !_timerStarted && _config.AutoRefreshEnabled && HasData)
         {
             var interval = TimeSpan.FromMinutes(_config.RefreshIntervalMinutes);
             _timer.Start(interval, () => FetchDataAsync(isRefresh: true, isSilent: true));
@@ -318,17 +340,52 @@ public class ModelHealthViewModel : BaseViewModel
         }
     }
 
+    private async Task LoadCloudDataAsync(bool allowSignIn, CancellationToken ct)
+    {
+        if (!IsCloudModel) return;
+        await Task.Yield(); // Let the already-open dashboard paint before sign-in/network work.
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            CloudStatus = "Authenticating…";
+            if (_cloudService is null) throw new CloudModelException("Cloud access is not configured.");
+            var info = await _cloudService.LoadAsync(ModelIdentity, allowSignIn, message =>
+            {
+                _dispatcher.Invoke(() => { if (!ct.IsCancellationRequested) CloudStatus = message; });
+            }, ct);
+            ct.ThrowIfCancellationRequested();
+            ApplyCloudIdentity(info);
+            CloudStatus = $"Published cloud data: {info.ObjectCount:N0} objects · {info.ViewName}. Health checks use the open model.";
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (ct.IsCancellationRequested) return;
+            if (ex is CloudModelException cloud && cloud.Identity is not null) ApplyCloudIdentity(cloud.Identity);
+            var reason = ex is CloudModelException ? ex.Message
+                : ex is OperationCanceledException ? "The cloud request timed out." : "Check Autodesk access and connectivity, then try Refresh.";
+            CloudStatus = "Cloud extraction unavailable — using local data. " + reason;
+            LogService.Warn("Cloud integration: unavailable; local extraction continues.");
+        }
+    }
+
+    private void ApplyCloudIdentity(CloudModelInfo info)
+    {
+        _cloudInfo = info;
+        ModelIdentity.ItemId = info.ItemId;
+        ModelIdentity.VersionUrn = info.VersionUrn;
+        OnPropertyChanged(nameof(CloudIdentityText));
+    }
+
     private async Task FetchDataAsync(bool isRefresh, bool isSilent)
     {
         // Interactive loads block each other. Silent refreshes skip if one is already running,
         // but an interactive load always takes priority and cancels any in-progress silent refresh.
-        if (IsLoading) return;
+        if (_closed || IsLoading || _isAuthorizing) return;
         if (isSilent && _isSilentRefreshing) return;
 
-#if TRIAL_VERSION
-        if (!EnsureTrialAllowsRefresh(isSilent))
-            return;
-#endif
+        var access = await EnsureAccessAsync(isSilent);
+        if (!access.IsAllowed || _closed) return;
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -351,6 +408,8 @@ public class ModelHealthViewModel : BaseViewModel
 
         // Snapshot families so they can be restored if an interactive refresh fails or is cancelled.
         var familiesSnapshot = !isSilent && isRefresh && HasData ? Families.ToList() : null;
+        var cloudTask = LoadCloudDataAsync(!isSilent || !_cloudInitialized, ct);
+        _cloudInitialized = true;
 
         try
         {
@@ -387,9 +446,8 @@ public class ModelHealthViewModel : BaseViewModel
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
                 await SaveSnapshotAsync();
-#if TRIAL_VERSION
-                RecordSuccessfulTrialRefresh(isSilent: true);
-#endif
+                _accessPolicy?.RecordSuccessfulRefresh(access.IsTrial);
+                OnRefreshCompleted?.Invoke();
                 LogService.Info("ViewModel: Silent refresh complete.");
             }
             else
@@ -428,9 +486,8 @@ public class ModelHealthViewModel : BaseViewModel
                 LastRefreshedText = $"Last updated {DateTime.Now:HH:mm}";
                 StatusText        = LastRefreshedText;
                 await SaveSnapshotAsync();
-#if TRIAL_VERSION
-                RecordSuccessfulTrialRefresh(isSilent: false);
-#endif
+                _accessPolicy?.RecordSuccessfulRefresh(access.IsTrial);
+                OnRefreshCompleted?.Invoke();
                 LogService.Info("ViewModel: Data loaded successfully.");
             }
         }
@@ -464,6 +521,7 @@ public class ModelHealthViewModel : BaseViewModel
         }
         finally
         {
+            await cloudTask;
             if (isSilent)
             {
                 _isSilentRefreshing    = false;
@@ -477,44 +535,39 @@ public class ModelHealthViewModel : BaseViewModel
         }
     }
 
-#if TRIAL_VERSION
-    private bool EnsureTrialAllowsRefresh(bool isSilent)
+    private async Task<PulseAccessDecision> EnsureAccessAsync(bool isSilent)
     {
-        var trialStatus = TrialManager.GetTrialStatus();
-        if (trialStatus.IsTrialActive)
-            return true;
-
-        LogService.Warn($"ViewModel: Trial inactive. {(isSilent ? "Silent refresh" : "Interactive refresh")} blocked.");
-
-        if (isSilent)
+        if (_accessPolicy is null) return new PulseAccessDecision(true);
+        _isAuthorizing = true;
+        PulseAccessDecision result;
+        try { result = await _accessPolicy.AuthorizeAsync(); }
+        catch (Exception ex)
+        {
+            LogService.Error("Pulse access verification failed.", ex);
+            result = new PulseAccessDecision(false, message: "Pulse could not verify access. Try signing in again.");
+        }
+        finally { _isAuthorizing = false; }
+        if (_closed) return new PulseAccessDecision(false);
+        _accessDenied = !result.IsAllowed;
+        OnRefreshCompleted?.Invoke();
+        if (!result.IsAllowed)
         {
             _timer.Stop();
             _timerStarted = false;
-            IsBackgroundRefreshing = false;
+            StatusText = "Sign in to activate your Pulse licence";
+            if (!isSilent) ErrorMessage = result.Message;
         }
-        else
-        {
-            ErrorMessage = trialStatus.GetStatusMessage();
-            StatusText = "Trial expired";
-            System.Windows.MessageBox.Show(
-                trialStatus.GetStatusMessage(),
-                "Pulse",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-        }
-
-        return false;
+        return result;
     }
 
-    private void RecordSuccessfulTrialRefresh(bool isSilent)
+    public void AccessChanged()
     {
-        TrialManager.RecordRefresh();
-        var trialStatus = TrialManager.GetTrialStatus();
+        _cts?.Cancel();
+        _timer.Stop();
+        _timerStarted = false;
+        ErrorMessage = null;
         OnRefreshCompleted?.Invoke();
-        LogService.Info(
-            $"ViewModel: Trial refresh counted. Mode={(isSilent ? "Silent" : "Interactive")}, RefreshesRemaining={trialStatus.RefreshesRemaining}.");
     }
-#endif
 
     /// <summary>Applies fast-phase results (no families). Clears the Families collection.</summary>
     private void ApplyFastResponse(DashboardResponse response)
@@ -590,7 +643,8 @@ public class ModelHealthViewModel : BaseViewModel
 
     private async Task ExecuteLoadFamilySizesAsync()
     {
-        if (_isSizeExtracting) return;
+        if (_closed || _isSizeExtracting || _isAuthorizing || IsLoading || _isSilentRefreshing) return;
+        if (!(await EnsureAccessAsync(isSilent: false)).IsAllowed || _closed) return;
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -756,6 +810,7 @@ public class ModelHealthViewModel : BaseViewModel
     /// <summary>Stops the timer and releases resources. Called when the window closes.</summary>
     public void Cleanup()
     {
+        _closed = true;
         LogService.Info("ViewModel: Cleanup called.");
         _timer.Stop();
         _timer.Dispose();
@@ -763,5 +818,6 @@ public class ModelHealthViewModel : BaseViewModel
         _cts?.Dispose();
         _cts          = null;
         _timerStarted = false;
+        _accessPolicy?.Dispose();
     }
 }

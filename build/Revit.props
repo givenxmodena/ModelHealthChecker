@@ -1,0 +1,37 @@
+<Project>
+  <PropertyGroup>
+    <Configurations>Debug;Release;Debug R24;Release R24;Debug R25;Release R25;Debug R26;Release R26;Debug R27;Release R27</Configurations>
+    <RevitYear Condition="'$(Configuration)' == 'Debug R24' or '$(Configuration)' == 'Release R24'">2024</RevitYear>
+    <RevitYear Condition="'$(Configuration)' == 'Debug R25' or '$(Configuration)' == 'Release R25'">2025</RevitYear>
+    <RevitYear Condition="'$(Configuration)' == 'Debug R26' or '$(Configuration)' == 'Release R26'">2026</RevitYear>
+    <RevitYear Condition="'$(Configuration)' == 'Debug R27' or '$(Configuration)' == 'Release R27'">2027</RevitYear>
+    <RevitYear Condition="'$(RevitYear)' == '' and ('$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release')">$(DefaultRevitYear)</RevitYear>
+    <TargetFramework Condition="'$(RevitYear)' == '2024'">net48</TargetFramework>
+    <TargetFramework Condition="'$(RevitYear)' == '2025' or '$(RevitYear)' == '2026'">net8.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(RevitYear)' == '2027'">net10.0-windows</TargetFramework>
+    <RevitApiDir Condition="'$(RevitApiDir)' == ''">C:\Program Files\Autodesk\Revit $(RevitYear)</RevitApiDir>
+    <RevitApiMajor>$([MSBuild]::Subtract($(RevitYear), 2000))</RevitApiMajor>
+    <DefineConstants>$(DefineConstants);REVIT$(RevitYear)</DefineConstants>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize Condition="$(Configuration.StartsWith('Release'))">true</Optimize>
+    <DefineConstants Condition="$(Configuration.StartsWith('Debug'))">$(DefineConstants);DEBUG;TRACE</DefineConstants>
+    <OutputPath>bin\$(Configuration)\$(BuildVariant)$(TargetFramework)-$(RevitYear)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(RevitApiDir)\Revit.exe</StartProgram>
+    <StartWorkingDirectory>$(RevitApiDir)</StartWorkingDirectory>
+    <StartArguments>/language ENU</StartArguments>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitApiDir)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitApiDir)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,58 @@
+[
+  {
+    "file": "Legacy/Microsoft.Bcl.AsyncInterfaces.dll",
+    "sha256": "80678203BD0203A6594F4E330B22543C0DE5059382BB1C9334B7868B8F31B1BC"
+  },
+  {
+    "file": "Legacy/MLBS.Desktop.Client.dll",
+    "sha256": "B39D28F0987C7A532C56683DE659985391EB82012C88FE5EFBB8E878DC7E28DD"
+  },
+  {
+    "file": "Legacy/System.Buffers.dll",
+    "sha256": "ACCCCFBE45D9F08FFEED9916E37B33E98C65BE012CFFF6E7FA7B67210CE1FEFB"
+  },
+  {
+    "file": "Legacy/System.Memory.dll",
+    "sha256": "BF3FB84664F4097F1A8A9BC71A51DCF8CF1A905D4080A4D290DA1730866E856F"
+  },
+  {
+    "file": "Legacy/System.Net.Http.Json.dll",
+    "sha256": "6DCCFC0F0D57110644B6B300E11FBF8BBD29416CC5370CF4C389AEFB7539E768"
+  },
+  {
+    "file": "Legacy/System.Numerics.Vectors.dll",
+    "sha256": "1D3EF8698281E7CF7371D1554AFEF5872B39F96C26DA772210A33DA041BA1183"
+  },
+  {
+    "file": "Legacy/System.Runtime.CompilerServices.Unsafe.dll",
+    "sha256": "37768488E8EF45729BC7D9A2677633C6450042975BB96516E186DA6CB9CD0DCF"
+  },
+  {
+    "file": "Legacy/System.Security.Cryptography.ProtectedData.dll",
+    "sha256": "37FA9BEEBB4F6613A635378A7E145F9187E093471BA2AED5CDF9AE14874A5F7B"
+  },
+  {
+    "file": "Legacy/System.Text.Encodings.Web.dll",
+    "sha256": "E9C4F5EED186CB129C527C4B8D67D163EA2F2396E9D8B96E30B5E7C12203CE84"
+  },
+  {
+    "file": "Legacy/System.Text.Json.dll",
+    "sha256": "86C3F263AE9B4469AB1266C80471087082447EB4A38E6B97BF5E84DE15C07A1D"
+  },
+  {
+    "file": "Legacy/System.Threading.Tasks.Extensions.dll",
+    "sha256": "4F81FFD0DC7204DB75AFC35EA4291769B07C440592F28894260EEA76626A23C6"
+  },
+  {
+    "file": "Legacy/System.ValueTuple.dll",
+    "sha256": "E905D102585B22C6DF04F219AF5CBDBFA7BC165979E9788B62DF6DCC165E10F4"
+  },
+  {
+    "file": "Modern/MLBS.Desktop.Client.dll",
+    "sha256": "5859C3B0D22CF3DCA143CF9DA2F86C0E7DD2E77EF5FCAF1593C9073CB563C95A"
+  },
+  {
+    "file": "Modern/System.Security.Cryptography.ProtectedData.dll",
+    "sha256": "5E04D6CFF3B6FE9706908970CD594861F0C08B3824F7827B2331B5F4FCEE1BD1"
+  }
+]

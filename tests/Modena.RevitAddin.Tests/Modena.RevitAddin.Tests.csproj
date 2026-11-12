@@ -24,7 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\src\Modena.RevitAddin.Updater\RevitDeployment.cs" Link="RevitDeployment.cs" />
     <Using Include="Xunit" />
+    <Reference Include="MLBS.Desktop.Client">
+      <HintPath>..\..\libs\MLBS.Desktop.Client\Modern\MLBS.Desktop.Client.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

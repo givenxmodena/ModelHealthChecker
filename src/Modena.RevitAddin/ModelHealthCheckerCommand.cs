@@ -17,19 +17,10 @@ public class ModelHealthCheckerCommand : IExternalCommand
 {
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
+        IPulseAccessPolicy? accessPolicy = null;
         try
         {
             LogService.Info("ModelHealthCheckerCommand: Execute started.");
-
-#if TRIAL_VERSION
-            var trialStatus = TrialManager.GetTrialStatus();
-            if (!trialStatus.IsTrialActive)
-            {
-                LogService.Warn("ModelHealthCheckerCommand: Trial inactive. Command cancelled.");
-                WatermarkService.ShowTrialStatusDialog();
-                return Result.Cancelled;
-            }
-#endif
 
             var uiApp = commandData.Application;
             var doc = uiApp.ActiveUIDocument?.Document;
@@ -57,7 +48,7 @@ public class ModelHealthCheckerCommand : IExternalCommand
             var config = PluginConfig.Load();
 
             // Optional authentication gate
-            if (config.RequireAuthentication)
+            if (config.RequireAuthentication && !identity.IsCloudModel)
             {
                 var (clientId, clientSecret) = ApsCredentialsProvider.GetCredentials();
                 if (string.IsNullOrWhiteSpace(clientId))
@@ -94,13 +85,25 @@ public class ModelHealthCheckerCommand : IExternalCommand
                 }
             }
 
-            var extractor = new RevitHealthExtractor(doc, config);
+            var extractor = new RevitHealthExtractor(doc, config, uiApp.Application);
 
-            var viewModel = new ModelHealthViewModel(identity, extractor, documentContext, config);
+#if TRIAL_VERSION
+            accessPolicy = PulseAccessPolicyFactory.Create();
+            var access = accessPolicy.Initialize();
+            if (!access.IsAllowed)
+            {
+                TaskDialog.Show("Pulse — Activation Required", access.Message);
+                return Result.Cancelled;
+            }
+#endif
+
+            var viewModel = new ModelHealthViewModel(identity, extractor, documentContext, config,
+                cloudService: new ApsCloudModelService(config), accessPolicy: accessPolicy);
             var window = new ModelHealthWindow(viewModel);
 
             LogService.Info("ModelHealthCheckerCommand: Opening dashboard window.");
             window.Show();
+            accessPolicy = null; // The dashboard now owns the policy lifetime.
 
             return Result.Succeeded;
         }
@@ -112,5 +115,6 @@ public class ModelHealthCheckerCommand : IExternalCommand
             message = ex.Message;
             return Result.Failed;
         }
+        finally { accessPolicy?.Dispose(); }
     }
 }

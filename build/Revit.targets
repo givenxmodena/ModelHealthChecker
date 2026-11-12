@@ -1,0 +1,21 @@
+<Project>
+  <Target Name="ValidateRevitApi" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="('$(RevitYear)' == '2024' and '$(TargetFramework)' != 'net48') or (('$(RevitYear)' == '2025' or '$(RevitYear)' == '2026') and '$(TargetFramework)' != 'net8.0-windows') or ('$(RevitYear)' == '2027' and '$(TargetFramework)' != 'net10.0-windows')" Text="TargetFramework $(TargetFramework) does not match Revit $(RevitYear)." />
+    <Error Condition="'$(DefaultRevitYear)' == '2024' and '$(RevitYear)' != '2024'" Text="The Legacy project supports only R24." />
+    <Error Condition="'$(DefaultRevitYear)' != '2024' and '$(RevitYear)' == '2024'" Text="Use the Legacy project for R24." />
+    <Error Condition="!Exists('$(RevitApiDir)\RevitAPI.dll') or !Exists('$(RevitApiDir)\RevitAPIUI.dll')" Text="Both installed Revit $(RevitYear) API assemblies are required in $(RevitApiDir)." />
+    <GetAssemblyIdentity AssemblyFiles="$(RevitApiDir)\RevitAPI.dll;$(RevitApiDir)\RevitAPIUI.dll">
+      <Output TaskParameter="Assemblies" ItemName="ExactRevitApi" />
+    </GetAssemblyIdentity>
+    <Error Condition="!$([System.String]::Copy('%(ExactRevitApi.Version)').StartsWith('$(RevitApiMajor).'))" Text="Wrong Revit API: %(ExactRevitApi.Identity) version %(ExactRevitApi.Version); expected Revit $(RevitYear)." />
+    <Message Importance="high" Text="Revit $(RevitYear): %(ExactRevitApi.Identity) %(ExactRevitApi.Version) from $(RevitApiDir)" />
+  </Target>
+  <Target Name="WriteRevitBuildIdentity" AfterTargets="Build">
+    <WriteLinesToFile File="$(TargetDir)revit-build.json" Overwrite="true"
+      Lines="{ &quot;revitYear&quot;: &quot;$(RevitYear)&quot;, &quot;targetFramework&quot;: &quot;$(TargetFramework)&quot;, &quot;apiMajor&quot;: $(RevitApiMajor) }" />
+  </Target>
+  <Target Name="DeployToModenaSuite" AfterTargets="WriteRevitBuildIdentity"
+          Condition="'$(DeployToRevit)' == 'true' and '$(DisableTrialVersion)' != 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\src\Modena.RevitAddin\Deploy-ToSuite.ps1&quot; -AppId ModelHealthChecker -SourceDir &quot;$(TargetDir).&quot; -RevitYear $(RevitYear)" />
+  </Target>
+</Project>

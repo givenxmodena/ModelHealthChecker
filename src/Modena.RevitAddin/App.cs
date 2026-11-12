@@ -37,17 +37,7 @@ public class App : IExternalApplication
             var appVersion   = typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown";
             AnalyticsService.Initialize(config.PostHogApiKey, appVersion, revitVersion);
 
-#if TRIAL_VERSION
-            var trialStatus = TrialManager.GetTrialStatus();
-            if (trialStatus.IsExpired)
-            {
-                LogService.Warn("Trial expired. Blocking add-in startup.");
-                TaskDialog.Show("Pulse", trialStatus.GetStatusMessage());
-                return Result.Failed;
-            }
-
-            LogService.Info($"Trial active. DaysRemaining={trialStatus.DaysRemaining}, RefreshesRemaining={trialStatus.RefreshesRemaining}.");
-#endif
+            // Always register the ribbon so an expired trial can activate MLBS.
 
             // Create or reuse the "Modena" ribbon tab
             const string tabName = "Modena";

@@ -1,9 +1,9 @@
 ; Modena Model Health Checker Multi-Version Installer Script
-; Supports Revit 2024-2026
+; Supports Revit 2024-2027
 ; Created: 2026-03-17
 ;
 ; This script:
-; 1. Detects installed Revit versions (2024-2026)
+; 1. Detects installed Revit versions (2024-2027)
 ; 2. Deploys Model Health Checker to each detected Revit version
 ; 3. Creates .addin manifest files for each version
 ; 4. Deploys modena-config.json with obfuscated APS credentials
@@ -34,7 +34,9 @@
   #pragma message "APS Client Secret fingerprint: " + _SEC_F4 + "..." + _SEC_L4
 #endif
 
-#define AppVersion "1.0.4"
+#ifndef AppVersion
+#define AppVersion "1.0.5"
+#endif
 
 [Setup]
 AppId={{B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E}}
@@ -56,7 +58,7 @@ ArchitecturesInstallIn64BitMode=x64
 ArchitecturesAllowed=x64
 Compression=lzma
 SolidCompression=yes
-UninstallDisplayIcon={app}\Modena.RevitAddin.dll
+UninstallDisplayIcon={uninstallexe}
 DisableProgramGroupPage=yes
 AllowNoIcons=yes
 
@@ -68,44 +70,36 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "{app}"
 
 [Files]
-; Package payloads into installer (from build-multi-version.ps1 output)
-Source: "..\publish\Installer\Modern\*"; DestDir: "{app}\Payload\Modern"; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "..\publish\Installer\Legacy\*"; DestDir: "{app}\Payload\Legacy"; Flags: recursesubdirs createallsubdirs ignoreversion
-
-; Deploy Modern payload to Revit 2025-2026 AddIns (if installed)
-Source: "..\publish\Installer\Modern\*"; DestDir: "{code:GetRevitAddInsPath|2025}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin;*.pdb"; Check: IsRevitInstalled('2025')
-Source: "..\publish\Installer\Modern\*"; DestDir: "{code:GetRevitAddInsPath|2026}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin;*.pdb"; Check: IsRevitInstalled('2026')
-
-; Deploy Legacy payload to Revit 2024 AddIns (if installed)
-Source: "..\publish\Installer\Legacy\*"; DestDir: "{code:GetRevitAddInsPath|2024}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin;*.pdb"; Check: IsRevitInstalled('2024')
+Source: "..\publish\Installer\net48-2024\*"; DestDir: "{code:GetRevitAddInsPath|2024}\ModelHealthChecker"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin,*.pdb"; Check: IsRevitInstalled('2024')
+Source: "..\publish\Installer\net8.0-windows-2025\*"; DestDir: "{code:GetRevitAddInsPath|2025}\ModelHealthChecker"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin,*.pdb"; Check: IsRevitInstalled('2025')
+Source: "..\publish\Installer\net8.0-windows-2026\*"; DestDir: "{code:GetRevitAddInsPath|2026}\ModelHealthChecker"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin,*.pdb"; Check: IsRevitInstalled('2026')
+Source: "..\publish\Installer\net10.0-windows-2027\*"; DestDir: "{code:GetRevitAddInsPath|2027}\ModelHealthChecker"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Modena.RevitAddin.addin,*.pdb"; Check: IsRevitInstalled('2027')
 
 [InstallDelete]
-; Remove pre-existing addin manifests before installing (clears dev-deployment manifests)
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin*.addin"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin*.addin"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin*.addin"
-; Remove existing modena-config.json per version before installing new configuration
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\modena-config.json"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\modena-config.json"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\modena-config.json"
+; Remove only this add-in's old flat DLL and manifest when migrating to the owned folder.
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin.addin"; Check: IsRevitInstalled('2024')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin.dll"; Check: IsRevitInstalled('2024')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin.deps.json"; Check: IsRevitInstalled('2024')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin.addin"; Check: IsRevitInstalled('2025')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin.dll"; Check: IsRevitInstalled('2025')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin.deps.json"; Check: IsRevitInstalled('2025')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin.addin"; Check: IsRevitInstalled('2026')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin.dll"; Check: IsRevitInstalled('2026')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin.deps.json"; Check: IsRevitInstalled('2026')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\Modena.RevitAddin.addin"; Check: IsRevitInstalled('2027')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\Modena.RevitAddin.dll"; Check: IsRevitInstalled('2027')
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\Modena.RevitAddin.deps.json"; Check: IsRevitInstalled('2027')
 
 [UninstallDelete]
-; Remove Model Health Checker files from all Revit AddIns folders
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.Shared*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Newtonsoft.Json*"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\modena-config.json"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.Shared*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Newtonsoft.Json*"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\modena-config.json"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.Shared*"
-Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Newtonsoft.Json*"
-Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\modena-config.json"
-; Remove empty log directory if it exists
-Type: dirifempty; Name: "{userappdata}\ModenaModelHealthChecker\logs"
-Type: dirifempty; Name: "{userappdata}\ModenaModelHealthChecker"
+; Only remove product-owned folders and generated manifests; never shared root dependencies.
+Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2024\ModelHealthChecker"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2024\Modena.RevitAddin.addin"
+Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2025\ModelHealthChecker"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2025\Modena.RevitAddin.addin"
+Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\ModelHealthChecker"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\Modena.RevitAddin.addin"
+Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2027\ModelHealthChecker"
+Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\Modena.RevitAddin.addin"
 
 [Code]
 { ============================================================================
@@ -204,13 +198,7 @@ begin
     exit;
   end;
 
-  if DirExists(GetRevitAddInsPath(Version)) then
-  begin
-    Result := True;
-    exit;
-  end;
-
-  Result := False;
+Result := False;
 end;
 
 function GetInstalledRevitVersions: String;
@@ -221,6 +209,7 @@ begin
   if IsRevitInstalled('2024') then list := list + '2024, ';
   if IsRevitInstalled('2025') then list := list + '2025, ';
   if IsRevitInstalled('2026') then list := list + '2026, ';
+  if IsRevitInstalled('2027') then list := list + '2027, ';
   if (list <> '') then
     Delete(list, Length(list)-1, 2);
   Result := list;
@@ -281,6 +270,9 @@ begin
   if IsRevitInstalled('2026') then
     if not DirExists(GetRevitAddInsPath('2026')) then
       CreateDir(GetRevitAddInsPath('2026'));
+
+  if IsRevitInstalled('2027') then
+    ForceDirectories(GetRevitAddInsPath('2027'));
 end;
 
 { ============================================================================
@@ -302,7 +294,7 @@ var
 begin
   AddInsPath := GetRevitAddInsPath(Version);
   AddinFilePath := AddInsPath + '\Modena.RevitAddin.addin';
-  AssemblyPath := AddInsPath + '\Modena.RevitAddin.dll';
+  AssemblyPath := 'ModelHealthChecker\Modena.RevitAddin.dll';
 
   Manifest :=
     '<?xml version="1.0" encoding="utf-8"?>' + #13#10 +
@@ -310,7 +302,7 @@ begin
     '  <AddIn Type="Application">' + #13#10 +
     '    <Name>Pulse</Name>' + #13#10 +
     '    <Assembly>' + AssemblyPath + '</Assembly>' + #13#10 +
-    '    <AddInId>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</AddInId>' + #13#10 +
+    '    <AddInId>7C3F9A1D-4B8E-4F2A-B6D5-82E0C3A91E47</AddInId>' + #13#10 +
     '    <FullClassName>Modena.RevitAddin.App</FullClassName>' + #13#10 +
     '    <Text>Pulse</Text>' + #13#10 +
     '    <Description>Displays model health KPIs, failed checks, families, and element categories for the active Revit model. Part of the Modena AEC &amp; INFR suite.</Description>' + #13#10 +
@@ -323,7 +315,7 @@ begin
 
   Result := SaveStringToFile(AddinFilePath, Manifest, False);
 
-  CfgPath := AddInsPath + '\modena-config.json';
+  CfgPath := AddInsPath + '\ModelHealthChecker\modena-config.json';
 
   RawId := '{#ApsClientId}';
   RawSecret := '{#ApsClientSecret}';
@@ -351,6 +343,8 @@ begin
     CreateAddinManifest('2025');
   if IsRevitInstalled('2026') then
     CreateAddinManifest('2026');
+  if IsRevitInstalled('2027') then
+    CreateAddinManifest('2027');
 end;
 
 { ============================================================================
@@ -392,8 +386,8 @@ begin
 
   if InstalledVersions = '' then
   begin
-    MsgBox('No supported Revit versions (2024-2026) detected on this system.' + #13#10 +
-           'Pulse requires Revit 2024 or later.' + #13#10 + #13#10 +
+    MsgBox('No supported Revit versions (2024-2027) detected on this system.' + #13#10 +
+           'Pulse supports Revit 2024, 2025, 2026, and 2027.' + #13#10 + #13#10 +
            'Installation will continue, but the add-in will not be available until Revit is installed.',
            mbInformation, MB_OK);
   end

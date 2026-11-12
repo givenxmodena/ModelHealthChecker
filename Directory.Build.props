@@ -1,0 +1,10 @@
+<Project>
+  <!-- Set before NuGet/MSBuild imports so restores and WPF temporary builds are isolated. -->
+  <PropertyGroup>
+    <BuildVariant Condition="'$(DisableTrialVersion)' == 'true'">notrial\</BuildVariant>
+    <BaseIntermediateOutputPath>obj\$(Configuration)\</BaseIntermediateOutputPath>
+    <!-- Trial variants have identical NuGet dependencies, but separate compiler outputs. -->
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(BuildVariant)</IntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj\**;bin\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

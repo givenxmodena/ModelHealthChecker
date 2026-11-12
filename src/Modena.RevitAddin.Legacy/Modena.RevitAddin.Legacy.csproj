@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <!-- Legacy target: .NET Framework 4.8 for Revit 2024 -->
-    <TargetFramework>net48</TargetFramework>
     <RootNamespace>Modena.RevitAddin</RootNamespace>
     <AssemblyName>Modena.RevitAddin</AssemblyName>
     <Platforms>x64</Platforms>
@@ -12,38 +11,13 @@
     <UseWPF>true</UseWPF>
     <WarningsNotAsErrors>MSB3277</WarningsNotAsErrors>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <Version>1.0.4</Version>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
-    <AssemblyInformationalVersion>1.0.4</AssemblyInformationalVersion>
+    <Version>1.0.5</Version>
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
+    <FileVersion>1.0.5.0</FileVersion>
+    <AssemblyInformationalVersion>1.0.5</AssemblyInformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <DefineConstants Condition="'$(DisableTrialVersion)' != 'true'">$(DefineConstants);TRIAL_VERSION</DefineConstants>
   </PropertyGroup>
-
-  <!-- Debug configuration to launch Revit 2024 -->
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <StartAction>Program</StartAction>
-    <StartProgram>C:\Program Files\Autodesk\Revit 2024\Revit.exe</StartProgram>
-    <StartArguments>/language ENU</StartArguments>
-    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
-    <StartWorkingDirectory>C:\Program Files\Autodesk\Revit 2024</StartWorkingDirectory>
-  </PropertyGroup>
-
-  <!-- Revit Legacy API References (resolve via env or default installed path) -->
-  <PropertyGroup>
-    <RevitLegacyApiDir Condition="'$(REVIT_LEGACY_API_DIR)' != ''">$(REVIT_LEGACY_API_DIR)</RevitLegacyApiDir>
-    <RevitLegacyApiDir Condition="'$(RevitLegacyApiDir)' == '' and Exists('C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll')">C:\Program Files\Autodesk\Revit 2024</RevitLegacyApiDir>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="RevitAPI">
-      <HintPath>$(RevitLegacyApiDir)\RevitAPI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>$(RevitLegacyApiDir)\RevitAPIUI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
 
   <!-- Package References compatible with net48 -->
   <ItemGroup>
@@ -53,7 +27,6 @@
 
   <!-- Revit does not probe runtimes subfolders — copy WebView2Loader.dll to output root -->
   <Target Name="CopyWebView2Loader" AfterTargets="Build">
-    <Exec Command="if exist &quot;$(TargetDir)runtimes\win-x86\native\WebView2Loader.dll&quot; copy /Y &quot;$(TargetDir)runtimes\win-x86\native\WebView2Loader.dll&quot; &quot;$(TargetDir)WebView2Loader.dll&quot;" IgnoreExitCode="true" />
     <Exec Command="if exist &quot;$(TargetDir)runtimes\win-x64\native\WebView2Loader.dll&quot; copy /Y &quot;$(TargetDir)runtimes\win-x64\native\WebView2Loader.dll&quot; &quot;$(TargetDir)WebView2Loader.dll&quot;" IgnoreExitCode="true" />
   </Target>
 
@@ -95,6 +68,7 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup><Content Include="..\Modena.RevitAddin\Registry\**\*.json" Link="Registry\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /><Content Include="..\Modena.RevitAddin\Resources\MHC_*.png" Link="Resources\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   <!-- Copy .addin manifest and config to output directory -->
   <ItemGroup>
     <None Include="..\Modena.RevitAddin\Modena.RevitAddin.addin">
@@ -106,11 +80,8 @@
     </None>
   </ItemGroup>
 
-  <!-- PostBuild: deploy .addin to Revit 2024 addins folder (Debug only) -->
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Debug'">
-    <Exec Command="if not exist &quot;$(APPDATA)\Autodesk\Revit\Addins\2024&quot; mkdir &quot;$(APPDATA)\Autodesk\Revit\Addins\2024&quot;" IgnoreExitCode="true" />
-    <Exec Command="if exist &quot;$(TargetDir)Modena.RevitAddin.addin&quot; copy &quot;$(TargetDir)Modena.RevitAddin.addin&quot; &quot;$(APPDATA)\Autodesk\Revit\Addins\2024\Modena.RevitAddin.addin&quot;" IgnoreExitCode="true" />
-    <Exec Command="powershell -NoProfile -Command &quot;$f = \&quot;$env:APPDATA\\Autodesk\\Revit\\Addins\\2024\\Modena.RevitAddin.addin\&quot;; if (Test-Path $f) { $c = Get-Content $f -Raw; $c = $c -replace '(?s)(&lt;Assembly&gt;).*?(&lt;/Assembly&gt;)', '&lt;Assembly&gt;$(TargetPath)&lt;/Assembly&gt;'; Set-Content -Path $f -Value $c -Encoding UTF8 }&quot;" IgnoreExitCode="true" />
-  </Target>
-
+  <PropertyGroup><DefaultRevitYear>2024</DefaultRevitYear></PropertyGroup>
+  <Import Project="..\..\build\Revit.props" />
+  <Import Project="..\..\build\Mlbs.Desktop.Client.targets" />
+  <Import Project="..\..\build\Revit.targets" />
 </Project>

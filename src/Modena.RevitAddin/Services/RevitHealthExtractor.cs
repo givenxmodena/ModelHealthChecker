@@ -14,11 +14,16 @@ public class RevitHealthExtractor : IModelHealthExtractor
 {
     private readonly Document _doc;
     private readonly PluginConfig _config;
+    private readonly Autodesk.Revit.ApplicationServices.Application? _application;
 
-    public RevitHealthExtractor(Document document, PluginConfig? config = null)
+    public RevitHealthExtractor(
+        Document document,
+        PluginConfig? config = null,
+        Autodesk.Revit.ApplicationServices.Application? application = null)
     {
-        _doc    = document ?? throw new ArgumentNullException(nameof(document));
-        _config = config   ?? new PluginConfig();
+        _doc         = document ?? throw new ArgumentNullException(nameof(document));
+        _config      = config   ?? new PluginConfig();
+        _application = application;
     }
 
     /// <summary>Full extraction — fast phase + family sizes combined. Kept for backward compatibility.</summary>
@@ -88,6 +93,9 @@ public class RevitHealthExtractor : IModelHealthExtractor
 
         var results = new List<FamilyDto>();
         var total   = families.Count;
+        using var warningSuppressor = _application is null
+            ? null
+            : new FamilyExtractionWarningSuppressor(_application);
 
         for (int i = 0; i < families.Count; i++)
         {
@@ -127,6 +135,12 @@ public class RevitHealthExtractor : IModelHealthExtractor
         }
 
         var sorted = results.OrderByDescending(f => f.Kb).Take(20).ToList();
+        if (warningSuppressor?.WarningCount > 0)
+        {
+            LogService.Warn(
+                $"Family KB extraction suppressed {warningSuppressor.WarningCount} non-critical Revit warning(s): " +
+                warningSuppressor.BuildSummary());
+        }
         LogService.Info($"RevitHealthExtractor: Family KB extraction complete. Count={sorted.Count}");
         return sorted;
     }

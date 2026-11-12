@@ -157,7 +157,13 @@
                                 <Run Text="Project: "/>
                                 <Run Text="{Binding ProjectName, Mode=OneWay}" Foreground="{StaticResource TextPrimary}" FontWeight="Medium"/>
                             </TextBlock>
+                            <TextBlock Text="  |  " Foreground="#374151" FontSize="12"/>
+                            <TextBlock Text="{Binding ModelSourceText}" Foreground="{StaticResource TextSecondary}" FontSize="12"/>
                         </StackPanel>
+                        <TextBlock Text="{Binding CloudStatus}" Foreground="{StaticResource TextSecondary}" FontSize="11" TextWrapping="Wrap"
+                                   Visibility="{Binding IsCloudModel, Converter={StaticResource BoolToVis}}" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding CloudIdentityText}" ToolTip="{Binding CloudIdentityText}" Foreground="{StaticResource TextMuted}" FontSize="10" TextWrapping="Wrap"
+                                   Visibility="{Binding IsCloudModel, Converter={StaticResource BoolToVis}}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </DockPanel>
 

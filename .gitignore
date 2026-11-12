@@ -24,7 +24,10 @@ UI.zip
 
 # Markdown files
 *.md
+!README.md
+!Spec.md
 !docs/
+!docs/*.md
 !docs/**/*.md
 
 # OS files

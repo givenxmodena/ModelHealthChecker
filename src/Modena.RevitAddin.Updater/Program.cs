@@ -13,9 +13,7 @@ namespace Modena.RevitAddin.Updater;
 /// - This Launcher deploys the add-in DLLs to each installed Revit version
 /// - The Revit add-in triggers this Launcher with --update when the user requests an update
 ///
-/// MULTI-TARGETING:
-/// - Revit 2025-2026: .NET 8.0  (deploy from net8.0-windows/ subfolder)
-/// - Revit 2024:      .NET 4.8  (deploy from net48/ subfolder)
+/// Each Revit year has an exact API build in its own package subfolder.
 ///
 /// Usage:
 ///   Modena.RevitAddin.Updater.exe                                          # Deploy only
@@ -28,16 +26,22 @@ class Program
     private const string GitHubRepoUrl = "https://github.com/givenxmodena/ModelHealthChecker";
     private const string AppName = "ModelHealthChecker";
 
-    private static readonly Dictionary<string, string> RevitFrameworkMap = new()
-    {
-        { "2024", "net48" },
-        { "2025", "net8.0-windows" },
-        { "2026", "net8.0-windows" }
-    };
+
 
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--validate-package"))
+        {
+            try
+            {
+                var root = GetArgString(args, "--validate-package") ?? AppContext.BaseDirectory;
+                foreach (var year in RevitDeployment.Artifacts.Keys)
+                    RevitDeployment.ValidatePayload(root, year);
+                return 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+        }
         bool silent = args.Contains("--silent");
         bool updateMode = args.Contains("--update");
 
@@ -159,25 +163,11 @@ class Program
         string appDir = AppContext.BaseDirectory;
         string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
-        // DLL names that differ per framework
-        string[] net8Files =
-        [
-            "Modena.RevitAddin.dll",
-            "Modena.RevitAddin.deps.json",
-            "Modena.Shared.dll",
-            "Newtonsoft.Json.dll",
-            "Velopack.dll",
-            "NuGet.Versioning.dll"
-        ];
-
-        string[] net48Files =
-        [
-            "Modena.RevitAddin.dll",
-            "Modena.Shared.dll",
-            "Newtonsoft.Json.dll"
-        ];
-
-        foreach (var (revitVersion, framework) in RevitFrameworkMap)
+        // Validate all four payloads before changing any installed add-in.
+        foreach (var year in RevitDeployment.Artifacts.Keys)
+            RevitDeployment.ValidatePayload(appDir, year);
+        var failures = new List<Exception>();
+        foreach (var (revitVersion, framework) in RevitDeployment.Artifacts)
         {
             if (!IsRevitInstalled(revitVersion))
             {
@@ -193,57 +183,21 @@ class Program
                 string addinDir = Path.Combine(addInsRoot, AppName);
                 Directory.CreateDirectory(addinDir);
 
-                string sourceDir = Path.Combine(appDir, framework);
-                if (!Directory.Exists(sourceDir))
+                string sourceDir = RevitDeployment.ValidatePayload(appDir, revitVersion);
+                foreach (string src in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
                 {
-                    UpdaterLogger.Log($"  Falling back to root dir for Revit {revitVersion}.");
-                    sourceDir = appDir;
+                    string relative = Path.GetRelativePath(sourceDir, src);
+                    if (relative == "Modena.RevitAddin.addin") continue;
+                    string dst = Path.Combine(addinDir, relative);
+                    Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                    CopyWithRetry(src, dst, revitVersion);
                 }
-
-                string[] filesToCopy = framework == "net8.0-windows" ? net8Files : net48Files;
-
-                foreach (string file in filesToCopy)
-                {
-                    string src = Path.Combine(sourceDir, file);
-                    string dst = Path.Combine(addinDir, file);
-                    if (File.Exists(src))
-                    {
-                        CopyWithRetry(src, dst, revitVersion);
-                        UpdaterLogger.Log($"  Copied {file} → Revit {revitVersion}");
-                    }
-                    else
-                    {
-                        UpdaterLogger.Log($"  Warning: {file} not found in {sourceDir}");
-                    }
-                }
-
-                // Copy Registry/ folder
-                string regSrc = Path.Combine(sourceDir, "Registry");
-                if (Directory.Exists(regSrc))
-                {
-                    string regDst = Path.Combine(addinDir, "Registry");
-                    Directory.CreateDirectory(regDst);
-                    foreach (string regFile in Directory.GetFiles(regSrc))
-                    {
-                        string dest = Path.Combine(regDst, Path.GetFileName(regFile));
-                        File.Copy(regFile, dest, overwrite: true);
-                    }
-                    UpdaterLogger.Log($"  Copied Registry/ → Revit {revitVersion}");
-                }
-
-                // Copy modena-config.json
-                string cfgSrc = Path.Combine(sourceDir, "modena-config.json");
-                if (File.Exists(cfgSrc))
-                {
-                    File.Copy(cfgSrc, Path.Combine(addinDir, "modena-config.json"), overwrite: true);
-                    UpdaterLogger.Log($"  Copied modena-config.json → Revit {revitVersion}");
-                }
-
                 // Generate .addin manifest from template
                 string templatePath = Path.Combine(appDir, "Modena.RevitAddin.addin.template");
+                if (!File.Exists(templatePath)) throw new FileNotFoundException("Missing add-in manifest template.", templatePath);
                 if (File.Exists(templatePath))
                 {
-                    string content = File.ReadAllText(templatePath).Replace("{APPDIR}", addinDir);
+                    string content = File.ReadAllText(templatePath).Replace("{APPDIR}", System.Security.SecurityElement.Escape(addinDir));
                     File.WriteAllText(Path.Combine(addInsRoot, "Modena.RevitAddin.addin"), content);
                     UpdaterLogger.Log($"  Generated .addin manifest for Revit {revitVersion}");
                 }
@@ -253,8 +207,10 @@ class Program
             catch (Exception ex)
             {
                 UpdaterLogger.Log($"Failed to deploy to Revit {revitVersion}: {ex.Message}");
+                failures.Add(ex);
             }
         }
+        if (failures.Count > 0) throw new AggregateException("Revit deployment failed.", failures);
     }
 
     internal static async Task WaitForRevitToClose(int revitPid)

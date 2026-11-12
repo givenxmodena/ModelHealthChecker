@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <!-- UTF-8 hex encoding of PULSE; confirmed against the staging API. -->
+    <PulseMlbsProductCode Condition="'$(PulseMlbsProductCode)' == ''">50554C5345</PulseMlbsProductCode>
+    <PulseMlbsApiBaseUrl Condition="'$(PulseMlbsApiBaseUrl)' == ''">https://mms.modena-app.co.za/mlbsapi/</PulseMlbsApiBaseUrl>
+    <MlbsBundle Condition="'$(TargetFramework)' == 'net48'">Legacy</MlbsBundle>
+    <MlbsBundle Condition="'$(TargetFramework)' != 'net48'">Modern</MlbsBundle>
+    <MlbsBundlePath>$(MSBuildThisFileDirectory)..\libs\MLBS.Desktop.Client\$(MlbsBundle)</MlbsBundlePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="PulseMlbsProductCode" Value="$(PulseMlbsProductCode)" />
+    <AssemblyMetadata Include="PulseMlbsApiBaseUrl" Value="$(PulseMlbsApiBaseUrl)" />
+    <Reference Include="MLBS.Desktop.Client">
+      <HintPath>$(MlbsBundlePath)\MLBS.Desktop.Client.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.ProtectedData" Condition="'$(TargetFramework)' != 'net48'">
+      <HintPath>$(MlbsBundlePath)\System.Security.Cryptography.ProtectedData.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Content Include="$(MlbsBundlePath)\*.dll" Exclude="$(MlbsBundlePath)\MLBS.Desktop.Client.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="ValidateMlbsBundle" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(MlbsBundlePath)\MLBS.Desktop.Client.dll')" Text="The MLBS desktop client bundle is missing from $(MlbsBundlePath)." />
+  </Target>
+</Project>

@@ -80,11 +80,16 @@ foreach ($year in '2024','2025','2026','2027') {
     New-Item -ItemType Directory -Path $catalog -Force | Out-Null
     Copy-Item (Join-Path $destination 'modena-module.json') (Join-Path $catalog "$id.json")
     Compress-Archive -Path "$destination/*" -DestinationPath (Join-Path $assets "$id-$Version-suite-Revit$year.zip")
-    $inputs += @{ year=$year; framework=$framework; assembly=$assembly; sha256=(Get-FileHash $dll).Hash; mlbsSha256=(Get-FileHash (Join-Path $destination 'MLBS.Desktop.Client.dll')).Hash; source=$source }
-    Write-Host "Verified $id $Version / Revit $year: compiled 30-day trial, exact API and MLBS dependency."
+    $inputs += @{ year=$year; framework=$framework; assembly=$assembly; sha256=(Get-FileHash $dll).Hash; mlbsSha256=(Get-FileHash (Join-Path $destination 'MLBS.Desktop.Client.dll')).Hash; source=$source.Substring($repo.Length + 1) }
+    Write-Host "Verified $id $Version / Revit ${year}: compiled 30-day trial, exact API and MLBS dependency."
 }
 Copy-Item -LiteralPath $notes -Destination (Join-Path $assets 'RELEASE-NOTES.md')
 Compress-Archive -Path (Join-Path $output 'Runtime') -DestinationPath (Join-Path $assets "$id-$Version-suite-payload.zip")
 @{ moduleId=$id; version=$Version; repository="https://github.com/$repository"; sourceCommit=(git -C $repo rev-parse HEAD); payloads=$inputs; signed=$false } | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $assets 'release-manifest.json') -Encoding utf8
+$sources = [ordered]@{}
+foreach ($year in '2024','2025','2026','2027') {
+    $sources[$year] = @{ type='github'; url="https://github.com/$repository"; channel='stable'; packageId=$id; assetPattern="$id-$Version-suite-Revit$year.zip" }
+}
+@{ modules=@(@{ id=$id; version=$Version; supportedRevitVersions=@('2024','2025','2026','2027'); source=$sources['2026']; sourcesByRevitVersion=$sources }) } | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $assets 'suite-module-lock.json') -Encoding utf8
 Get-ChildItem $assets -File | Sort-Object Name | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName).Hash.ToLowerInvariant(), $_.Name } | Set-Content (Join-Path $assets 'SHA256SUMS.txt') -Encoding utf8
 Write-Host "Suite release assets: $assets"

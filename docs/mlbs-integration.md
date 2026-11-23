@@ -1,6 +1,6 @@
 # Pulse trial and MLBS access
 
-Pulse retains its existing 60-day / 1,000-successful-refresh trial. A valid stored
+Pulse provides a 30-day / 1,000-successful-refresh trial. A valid stored
 MLBS identity selects paid access before consulting the local trial. Otherwise an
 independently active trial can continue. When the trial expires, opening Pulse
 requires successful MLBS activation. An expired trial no longer prevents the

@@ -1,0 +1,39 @@
+{
+  "newFeatures": [
+    {
+      "description": "Registration, sign-in, profile and sign-out use the shared MLBS desktop client.",
+      "title": "MLBS activation after a 30-day trial"
+    },
+    {
+      "description": "Recorded scans, trend summaries, pagination and scan comparison.",
+      "title": "Model health history"
+    },
+    {
+      "description": "Read published model details alongside local checks when APS access is configured.",
+      "title": "ACC cloud model information"
+    }
+  ],
+  "version": "1.0.6",
+  "fixes": [
+    {
+      "description": "Expired trials retain an activation entry point.",
+      "title": "30-second licensing requests"
+    }
+  ],
+  "appId": "ModelHealthChecker",
+  "schemaVersion": 1,
+  "releaseId": "ModelHealthChecker-1.0.6",
+  "improvements": [
+    {
+      "description": "Separate API/runtime builds include a matching MLBS dependency.",
+      "title": "Exact Revit 2024–2027 payloads"
+    }
+  ],
+  "channel": "stable",
+  "supportedRevitVersions": [
+    "2024",
+    "2025",
+    "2026",
+    "2027"
+  ]
+}

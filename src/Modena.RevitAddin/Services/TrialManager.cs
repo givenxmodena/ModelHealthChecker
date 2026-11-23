@@ -18,7 +18,7 @@ public static class TrialManager
     private static readonly string TrialVersionKey = "TrialVersion";
 
     private const int TRIAL_VERSION = 1;
-    private const int TRIAL_DAYS = 60;
+    private const int TRIAL_DAYS = 30;
     private const int MAX_TRIAL_REFRESHES = 1000;
 
     /// <summary>

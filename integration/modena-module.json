@@ -1,0 +1,35 @@
+{
+  "id": "ModelHealthChecker",
+  "displayName": "Pulse",
+  "moduleVersion": "1.0.6",
+  "publisher": "Modena AEC",
+  "description": "Displays model health KPIs, failed checks, families, and element categories for the active Revit model.",
+  "entryAssembly": "Modena.RevitAddin.dll",
+  "updateSource": {
+    "type": "github",
+    "url": "https://github.com/givenxmodena/ModelHealthChecker",
+    "channel": "stable",
+    "packageId": "ModelHealthChecker"
+  },
+  "compatibility": {
+    "supportedRevitVersions": [
+      "2024",
+      "2025",
+      "2026",
+      "2027"
+    ],
+    "minSuiteCoreVersion": "1.0.0",
+    "sharedContractVersion": "1.0"
+  },
+  "commands": [
+    {
+      "id": "ModelHealthChecker.Check",
+      "text": "Pulse",
+      "panel": "Model Management",
+      "className": "Modena.RevitAddin.ModelHealthCheckerCommand",
+      "largeIcon": "Resources/MHC_32.png",
+      "smallIcon": "Resources/MHC_16.png",
+      "tooltip": "Displays model health KPIs, failed checks, families, and element categories for the active Revit model."
+    }
+  ]
+}
